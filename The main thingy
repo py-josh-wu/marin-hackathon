@@ -60,15 +60,15 @@ DEFAULT_CONFIG = {
         "Organic Bananas": "Mom (+1 555-0199)",
         "Fuji Apples": "Dad (+1 555-0188)",
         "Valencia Oranges": "Sister (+1 555-0177)",
-        "Fresh Strawberries": "Best Friend (+1 555-0166)",
+        "Fresh Strawberries": "Best Friend Sarah (+1 555-0166)",
         "Avocado Bag": "911 Emergency Dispatch",
         "Organic Lemons": "Campus Security (+1 555-0144)",
-        "Fresh Blackberries": "Neighbor (+1 555-0133)",
-        "Honeycrisp Apples": "Dad (+1 555-0188)",
-        "Ripe Mangoes": "Brother (+1 555-0122)",
-        "Seedless Grapes": "Work Hotline (+1 555-0111)",
-        "Golden Pineapple": "Landlord (+1 555-0100)",
-        "Sweet Watermelon": "911 Emergency Dispatch"
+        "Fresh Blackberries": "Neighbor Dave (+1 555-0133)",
+        "Honeycrisp Apples": "Brother Alex (+1 555-0122)",
+        "Ripe Mangoes": "Aunt Sarah (+1 555-0155)",
+        "Seedless Grapes": "Work Safety Line (+1 555-0111)",
+        "Golden Pineapple": "Property Manager (+1 555-0100)",
+        "Sweet Watermelon": "Local Urgent Care (+1 555-0190)"
     }
 }
 
@@ -81,6 +81,11 @@ def load_config():
             cfg = json.load(f)
             if "fruit_contacts" not in cfg:
                 cfg["fruit_contacts"] = DEFAULT_CONFIG["fruit_contacts"]
+            else:
+                # Fill in any missing keys with unique contacts
+                for key, val in DEFAULT_CONFIG["fruit_contacts"].items():
+                    if key not in cfg["fruit_contacts"]:
+                        cfg["fruit_contacts"][key] = val
             return cfg
     except Exception:
         return DEFAULT_CONFIG
@@ -198,7 +203,7 @@ class BobShopApp(tk.Tk):
         tk.Label(title_frame, text="BOB SHOP SETUP", font=("Helvetica", 14, "bold"), fg=THEME["text_main"], bg=THEME["nav_bg"]).pack(anchor="w")
         tk.Label(title_frame, text="Configure voice trigger & emergency contacts", font=("Helvetica", 9), fg=THEME["text_muted"], bg=THEME["nav_bg"]).pack(anchor="w")
 
-        # Scrollable / Padded Container
+        # Container
         container = tk.Frame(self, bg=THEME["bg"], padx=30, pady=15)
         container.pack(fill="both", expand=True)
 
@@ -244,7 +249,7 @@ class BobShopApp(tk.Tk):
                 card, font=("Helvetica", 9), bg=THEME["bg"], fg=THEME["text_main"],
                 insertbackground=THEME["text_main"], bd=0, highlightthickness=1, highlightbackground=THEME["border"]
             )
-            ent.insert(0, current_mappings.get(name, "911 Emergency Dispatch"))
+            ent.insert(0, current_mappings.get(name, "Mom (+1 555-0199)"))
             ent.pack(fill="x", ipady=4)
 
             self.contact_entries[name] = ent
