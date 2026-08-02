@@ -6,7 +6,7 @@ import tkinter as tk
 from tkinter import messagebox
 
 # ==========================================
-# SPEECH RECOGNITION LIBRARY INTEGRATION
+# 1. THIRD-PARTY LIBRARIES (SPEECH & TWILIO)
 # ==========================================
 SPEECH_SUPPORTED = False
 try:
@@ -15,30 +15,73 @@ try:
     print("✅ SpeechRecognition library successfully loaded.")
 except ImportError:
     SPEECH_SUPPORTED = False
-    print("⚠️ SpeechRecognition or PyAudio library not found. Run: pip install SpeechRecognition pyaudio")
+    print("⚠️ SpeechRecognition or PyAudio not found. Run: pip install SpeechRecognition pyaudio")
+
+TWILIO_SUPPORTED = False
+try:
+    from twilio.rest import Client
+    TWILIO_SUPPORTED = True
+    print("✅ Twilio library successfully loaded.")
+except ImportError:
+    TWILIO_SUPPORTED = False
+    print("⚠️ Twilio library not found. Run: pip install twilio")
 
 
 # ==========================================
-# CONFIGURATION & LIGHT THEME PALETTE
+# 2. TWILIO CONFIGURATION (INSERT YOUR KEYS)
+# ==========================================
+TWILIO_ACCOUNT_SID = "YOUR_TWILIO_ACCOUNT_SID"
+TWILIO_AUTH_TOKEN = "YOUR_TWILIO_AUTH_TOKEN"
+TWILIO_PHONE_NUMBER = "+18005550199"  # Your Twilio virtual phone number
+
+def send_real_sms(to_number, message_body):
+    """Utility function to dispatch real SMS via Twilio API."""
+    if not TWILIO_SUPPORTED:
+        print("❌ Twilio SDK not installed. Text not sent.")
+        return False
+        
+    if TWILIO_ACCOUNT_SID == "YOUR_TWILIO_ACCOUNT_SID":
+        print("⚠️ Twilio API credentials not configured. Please add SID and Token to app.py.")
+        return False
+
+    def _send_thread():
+        try:
+            client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+            message = client.messages.create(
+                body=message_body,
+                from_=TWILIO_PHONE_NUMBER,
+                to=to_number
+            )
+            print(f"✅ SMS successfully sent to {to_number}! Message SID: {message.sid}")
+        except Exception as e:
+            print(f"❌ Failed to send SMS to {to_number}: {e}")
+
+    # Send in a background thread so the GUI doesn't freeze
+    threading.Thread(target=_send_thread, daemon=True).start()
+    return True
+
+
+# ==========================================
+# 3. CONFIGURATION & THEME PALETTE
 # ==========================================
 CONFIG_FILE = "bob_config.json"
 
 THEME = {
-    "bg": "#F8FAFC",               # Cool crisp slate-white background
-    "surface": "#FFFFFF",          # Card white background
-    "surface_hover": "#F1F5F9",    # Card hover background
-    "nav_bg": "#FFFFFF",           # Pure white header/navigation bar
-    "border": "#E2E8F0",           # Subtle light border
-    "border_hover": "#6366F1",     # Soft indigo hover border
-    "accent_primary": "#4F46E5",   # Royal Indigo (Primary Action)
-    "accent_primary_hover": "#3730A3", # Deep Indigo
-    "accent_success": "#059669",   # Vibrant Emerald (Success/Save)
-    "accent_success_hover": "#047857", # Dark Emerald
-    "text_main": "#0F172A",        # Dark slate main text
-    "text_muted": "#64748B",       # Soft slate secondary text
-    "status_active": "#059669",    # Emerald green dot
-    "status_warn": "#D97706",      # Amber gold
-    "status_error": "#DC2626"      # Coral red
+    "bg": "#F8FAFC",
+    "surface": "#FFFFFF",
+    "surface_hover": "#F1F5F9",
+    "nav_bg": "#FFFFFF",
+    "border": "#E2E8F0",
+    "border_hover": "#6366F1",
+    "accent_primary": "#4F46E5",
+    "accent_primary_hover": "#3730A3",
+    "accent_success": "#059669",
+    "accent_success_hover": "#047857",
+    "text_main": "#0F172A",
+    "text_muted": "#64748B",
+    "status_active": "#059669",
+    "status_warn": "#D97706",
+    "status_error": "#DC2626"
 }
 
 PRODUCTS_LIST = [
@@ -59,20 +102,19 @@ PRODUCTS_LIST = [
 DEFAULT_CONFIG = {
     "first_run": True,
     "trigger_phrase": "hey bobify, can i buy a banana from hannah?",
-    "default_contact": "911 Emergency Dispatch",
     "fruit_contacts": {
-        "Organic Bananas": "Mom (+1 555-0199)",
-        "Fuji Apples": "Dad (+1 555-0188)",
-        "Valencia Oranges": "Sister (+1 555-0177)",
-        "Fresh Strawberries": "Best Friend Sarah (+1 555-0166)",
-        "Avocado Bag": "911 Emergency Dispatch",
-        "Organic Lemons": "Campus Security (+1 555-0144)",
-        "Fresh Blackberries": "Neighbor Dave (+1 555-0133)",
-        "Honeycrisp Apples": "Brother Alex (+1 555-0122)",
-        "Ripe Mangoes": "Aunt Sarah (+1 555-0155)",
-        "Seedless Grapes": "Work Safety Line (+1 555-0111)",
-        "Golden Pineapple": "Property Manager (+1 555-0100)",
-        "Sweet Watermelon": "Local Urgent Care (+1 555-0190)"
+        "Organic Bananas": "+15550199",
+        "Fuji Apples": "+15550188",
+        "Valencia Oranges": "+15550177",
+        "Fresh Strawberries": "+15550166",
+        "Avocado Bag": "+15550199",
+        "Organic Lemons": "+15550144",
+        "Fresh Blackberries": "+15550133",
+        "Honeycrisp Apples": "+15550122",
+        "Ripe Mangoes": "+15550155",
+        "Seedless Grapes": "+15550111",
+        "Golden Pineapple": "+15550100",
+        "Sweet Watermelon": "+15550190"
     }
 }
 
@@ -85,10 +127,6 @@ def load_config():
             cfg = json.load(f)
             if "fruit_contacts" not in cfg:
                 cfg["fruit_contacts"] = DEFAULT_CONFIG["fruit_contacts"]
-            else:
-                for key, val in DEFAULT_CONFIG["fruit_contacts"].items():
-                    if key not in cfg["fruit_contacts"]:
-                        cfg["fruit_contacts"][key] = val
             return cfg
     except Exception:
         return DEFAULT_CONFIG
@@ -99,7 +137,7 @@ def save_config(config):
 
 
 # ==========================================
-# CUSTOM ROUNDED PILL BUTTON COMPONENT
+# 4. CUSTOM BUTTON COMPONENT
 # ==========================================
 class RoundedButton(tk.Canvas):
     def __init__(self, parent, text, command=None, width=130, height=36, radius=18,
@@ -117,14 +155,9 @@ class RoundedButton(tk.Canvas):
         self.text = text
 
         self._draw(self.bg_color)
-
         self.bind("<Enter>", lambda e: self._draw(self.hover_color))
         self.bind("<Leave>", lambda e: self._draw(self.bg_color))
         self.bind("<Button-1>", self._on_click)
-
-    def set_text(self, new_text):
-        self.text = new_text
-        self._draw(self.bg_color)
 
     def _draw(self, color):
         self.delete("all")
@@ -148,7 +181,7 @@ class RoundedButton(tk.Canvas):
 
 
 # ==========================================
-# MAIN APPLICATION CLASS
+# 5. MAIN APPLICATION
 # ==========================================
 class BobShopApp(tk.Tk):
     def __init__(self):
@@ -164,11 +197,8 @@ class BobShopApp(tk.Tk):
         self.is_listening = True
         self.mic_status_text = "Initializing Protection..."
         self.mic_status_color = THEME["status_warn"]
-
         self.is_ai_active = False
-        self.current_screen = "store"
 
-        # Initialize speech recognizer instance
         if SPEECH_SUPPORTED:
             self.recognizer = sr.Recognizer()
             self.recognizer.energy_threshold = 300
@@ -176,7 +206,6 @@ class BobShopApp(tk.Tk):
         else:
             self.recognizer = None
 
-        # Background Security Speech Listener Thread
         self.listener_thread = threading.Thread(target=self._start_speech_recognition, daemon=True)
         self.listener_thread.start()
 
@@ -185,7 +214,6 @@ class BobShopApp(tk.Tk):
         else:
             self.show_store_interface()
 
-    # --- BRAND LOGO ---
     def _draw_brand_logo(self, canvas, center_x, center_y, scale=1.0):
         w = 16 * scale
         h = 20 * scale
@@ -199,14 +227,10 @@ class BobShopApp(tk.Tk):
             start=0, extent=180, outline=THEME["accent_primary"], width=3, style=tk.ARC
         )
 
-    # ==========================================
-    # 1. SETUP & CONFIGURATION SCREEN
-    # ==========================================
+    # --- TUTORIAL / SETTINGS ---
     def show_tutorial(self):
-        self.current_screen = "settings"
         self._clear_window()
 
-        # Header
         header = tk.Frame(self, bg=THEME["nav_bg"], height=85, highlightbackground=THEME["border"], highlightthickness=1)
         header.pack(fill="x")
         header.pack_propagate(False)
@@ -218,23 +242,16 @@ class BobShopApp(tk.Tk):
         title_frame = tk.Frame(header, bg=THEME["nav_bg"])
         title_frame.pack(side="left", fill="y", pady=18)
         tk.Label(title_frame, text="BOB SHOP SETUP", font=("Helvetica", 14, "bold"), fg=THEME["text_main"], bg=THEME["nav_bg"]).pack(anchor="w")
-        tk.Label(title_frame, text="Configure voice trigger & emergency contacts", font=("Helvetica", 9), fg=THEME["text_muted"], bg=THEME["nav_bg"]).pack(anchor="w")
+        tk.Label(title_frame, text="Configure voice trigger & SMS numbers (Use +1 E.164 format)", font=("Helvetica", 9), fg=THEME["text_muted"], bg=THEME["nav_bg"]).pack(anchor="w")
 
-        # Container
         container = tk.Frame(self, bg=THEME["bg"], padx=30, pady=15)
         container.pack(fill="both", expand=True)
 
-        # Trigger Card
         card_voice = tk.Frame(container, bg=THEME["surface"], padx=16, pady=12, highlightbackground=THEME["border"], highlightthickness=1)
         card_voice.pack(fill="x", pady=(0, 10))
 
         tk.Label(card_voice, text="🎙️ Secret Voice Activation Phrase", font=("Helvetica", 11, "bold"), fg=THEME["text_main"], bg=THEME["surface"]).pack(anchor="w")
-        tk.Label(
-            card_voice, 
-            text="Speaking this phrase anywhere while active silently triggers an emergency alert.",
-            font=("Helvetica", 8), fg=THEME["text_muted"], bg=THEME["surface"]
-        ).pack(anchor="w", pady=(2, 6))
-
+        
         self.ent_phrase = tk.Entry(
             card_voice, font=("Helvetica", 10), bg=THEME["bg"], fg=THEME["text_main"],
             insertbackground=THEME["text_main"], bd=0, highlightthickness=1, highlightbackground=THEME["border"]
@@ -242,8 +259,7 @@ class BobShopApp(tk.Tk):
         self.ent_phrase.insert(0, self.config_data.get("trigger_phrase", ""))
         self.ent_phrase.pack(fill="x", ipady=6, padx=2)
 
-        # Mappings Grid
-        tk.Label(container, text="🛍️ Emergency Contact Mappings", font=("Helvetica", 11, "bold"), fg=THEME["text_main"], bg=THEME["bg"]).pack(anchor="w", pady=(5, 6))
+        tk.Label(container, text="📱 Target SMS Numbers for Each Item", font=("Helvetica", 11, "bold"), fg=THEME["text_main"], bg=THEME["bg"]).pack(anchor="w", pady=(5, 6))
 
         grid_container = tk.Frame(container, bg=THEME["bg"])
         grid_container.pack(fill="both", expand=True)
@@ -266,12 +282,11 @@ class BobShopApp(tk.Tk):
                 card, font=("Helvetica", 9), bg=THEME["bg"], fg=THEME["text_main"],
                 insertbackground=THEME["text_main"], bd=0, highlightthickness=1, highlightbackground=THEME["border"]
             )
-            ent.insert(0, current_mappings.get(name, "Mom (+1 555-0199)"))
+            ent.insert(0, current_mappings.get(name, "+15550199"))
             ent.pack(fill="x", ipady=4)
 
             self.contact_entries[name] = ent
 
-        # Bottom Rounded Save Button
         btn_box = tk.Frame(self, bg=THEME["bg"], pady=12)
         btn_box.pack(fill="x", side="bottom")
 
@@ -292,7 +307,7 @@ class BobShopApp(tk.Tk):
         fruit_contacts = {}
         for name, ent in self.contact_entries.items():
             val = ent.get().strip()
-            fruit_contacts[name] = val if val else "911 Emergency Dispatch"
+            fruit_contacts[name] = val if val else "+15550199"
 
         self.config_data["trigger_phrase"] = phrase
         self.config_data["fruit_contacts"] = fruit_contacts
@@ -301,14 +316,10 @@ class BobShopApp(tk.Tk):
 
         self.show_store_interface()
 
-    # ==========================================
-    # 2. VIBRANT STORE FRONTEND WITH AI TASK BOT
-    # ==========================================
+    # --- STORE FRONTEND ---
     def show_store_interface(self):
-        self.current_screen = "store"
         self._clear_window()
 
-        # Top Nav Bar
         nav = tk.Frame(self, bg=THEME["nav_bg"], height=65, highlightbackground=THEME["border"], highlightthickness=1)
         nav.pack(fill="x")
         nav.pack_propagate(False)
@@ -320,7 +331,6 @@ class BobShopApp(tk.Tk):
         lbl_brand = tk.Label(nav, text="BOB SHOP", font=("Helvetica", 13, "bold"), fg=THEME["text_main"], bg=THEME["nav_bg"])
         lbl_brand.pack(side="left")
 
-        # Top Right Settings Pill Button
         btn_settings = RoundedButton(
             nav, text="⚙️ Settings", command=self.show_tutorial,
             width=110, height=34, radius=17,
@@ -329,40 +339,13 @@ class BobShopApp(tk.Tk):
         )
         btn_settings.pack(side="right", padx=20, pady=15)
 
-        # Main Layout Box
         main_content = tk.Frame(self, bg=THEME["bg"], padx=20, pady=10)
         main_content.pack(fill="both", expand=True)
 
-        # --- AI VOICE TASK BOT BANNER ---
-        ai_banner = tk.Frame(main_content, bg=THEME["surface"], highlightbackground=THEME["accent_primary"], highlightthickness=1, padx=15, pady=10)
-        ai_banner.pack(fill="x", pady=(0, 10))
-
-        ai_left = tk.Frame(ai_banner, bg=THEME["surface"])
-        ai_left.pack(side="left", fill="x", expand=True)
-
-        tk.Label(ai_left, text="🤖 AI Voice Task Assistant", font=("Helvetica", 11, "bold"), fg=THEME["text_main"], bg=THEME["surface"]).pack(anchor="w")
-        
-        status_subtext = "Say something like: 'Add organic bananas to my cart' or 'Open settings'" if SPEECH_SUPPORTED else "⚠️ Run 'pip install SpeechRecognition pyaudio' to enable voice commands"
-        self.lbl_ai_transcript = tk.Label(
-            ai_left, text=status_subtext,
-            font=("Helvetica", 9), fg=THEME["text_muted"], bg=THEME["surface"]
-        )
-        self.lbl_ai_transcript.pack(anchor="w", pady=(2, 0))
-
-        self.btn_ai_listen = RoundedButton(
-            ai_banner, text="🎙️ Voice Command", command=self._trigger_ai_listen_thread,
-            width=150, height=34, radius=17,
-            bg_color=THEME["accent_primary"], hover_color=THEME["accent_primary_hover"],
-            text_color="#FFFFFF"
-        )
-        self.btn_ai_listen.pack(side="right", padx=(10, 0))
-
-        # Store Title Section
         header_box = tk.Frame(main_content, bg=THEME["bg"])
         header_box.pack(fill="x", pady=(0, 5))
         tk.Label(header_box, text="Fresh Organic Produce", font=("Helvetica", 14, "bold"), fg=THEME["text_main"], bg=THEME["bg"]).pack(side="left")
 
-        # Product Grid
         grid_frame = tk.Frame(main_content, bg=THEME["bg"])
         grid_frame.pack(fill="both", expand=True)
 
@@ -396,9 +379,6 @@ class BobShopApp(tk.Tk):
             )
             btn_buy.pack(anchor="center", side="bottom")
 
-            self._attach_hover_effect(card, [lbl_icon, lbl_title, lbl_price], btn_buy)
-
-        # Footer Status Bar
         self.footer = tk.Frame(self, bg=THEME["nav_bg"], height=38, highlightbackground=THEME["border"], highlightthickness=1)
         self.footer.pack(fill="x", side="bottom")
 
@@ -416,106 +396,23 @@ class BobShopApp(tk.Tk):
 
         self._apply_status_ui()
 
-    # --- CARD HOVER DYNAMICS ---
-    def _attach_hover_effect(self, card_widget, children, button_widget):
-        def on_enter(e):
-            card_widget.config(bg=THEME["surface_hover"], highlightbackground=THEME["border_hover"])
-            for child in children:
-                child.config(bg=THEME["surface_hover"])
-
-        def on_leave(e):
-            card_widget.config(bg=THEME["surface"], highlightbackground=THEME["border"])
-            for child in children:
-                child.config(bg=THEME["surface"])
-
-        card_widget.bind("<Enter>", on_enter)
-        card_widget.bind("<Leave>", on_leave)
-        for child in children:
-            child.bind("<Enter>", on_enter)
-            child.bind("<Leave>", on_leave)
-
+    # --- BUTTON CLICK HANDLER (TRIGGERS REAL SMS) ---
     def _on_product_clicked(self, product_name):
-        assigned_contact = self.config_data.get("fruit_contacts", {}).get(product_name, "911 Emergency Dispatch")
+        assigned_number = self.config_data.get("fruit_contacts", {}).get(product_name, "+15550199")
+        sms_message = f"Alert: An item ({product_name}) was selected in the Bob Shop application."
 
-        messagebox.showinfo("Bob Shop", f"Added {product_name} to cart.")
+        # Send actual SMS
+        sent_status = send_real_sms(assigned_number, sms_message)
 
-        print("\n" + "="*50)
-        print(f"🚨 [TOUCH ALERT DISPATCHED - {product_name.upper()}] 🚨")
-        print(f"Contact Dispatched: {assigned_contact}")
-        print("="*50 + "\n")
+        if sent_status:
+            messagebox.showinfo("Bob Shop", f"Added {product_name} to cart.\n\n📲 SMS Alert dispatched to {assigned_number}")
+        else:
+            messagebox.showinfo("Bob Shop", f"Added {product_name} to cart.\n\n⚠️ SMS not sent (Check Twilio credentials). Target: {assigned_number}")
 
-    # ==========================================
-    # 3. AI TASK BOT VOICE EXECUTION ENGINE
-    # ==========================================
-    def _trigger_ai_listen_thread(self):
-        if self.is_ai_active:
-            return
-        threading.Thread(target=self._listen_and_execute_task, daemon=True).start()
-
-    def _listen_and_execute_task(self):
-        if not SPEECH_SUPPORTED or not self.recognizer:
-            self._update_ai_status("SpeechRecognition library is missing. Install via pip install SpeechRecognition pyaudio")
-            return
-
-        self.is_ai_active = True
-        self._update_ai_status("👂 Listening for your command...")
-        
-        try:
-            with sr.Microphone() as source:
-                self.recognizer.adjust_for_ambient_noise(source, duration=0.8)
-                audio = self.recognizer.listen(source, timeout=5, phrase_time_limit=5)
-            
-            command = self.recognizer.recognize_google(audio).lower()
-            self._update_ai_status(f"Heard: \"{command}\"")
-            self.after(500, lambda: self._process_ai_command(command))
-        except sr.WaitTimeoutError:
-            self._update_ai_status("Timed out waiting for speech. Click button to try again.")
-        except sr.UnknownValueError:
-            self._update_ai_status("Could not understand audio.")
-        except Exception as e:
-            self._update_ai_status(f"Error accessing microphone: {str(e)}")
-        finally:
-            self.is_ai_active = False
-
-    def _update_ai_status(self, text):
-        if hasattr(self, 'lbl_ai_transcript') and self.lbl_ai_transcript.winfo_exists():
-            self.after(0, lambda: self.lbl_ai_transcript.config(text=text))
-
-    def _process_ai_command(self, command):
-        """Parses speech text into actionable UI events."""
-        print(f"🤖 [AI BOT PROCESSING]: '{command}'")
-
-        # Task 1: Open Settings
-        if any(kw in command for kw in ["settings", "configure", "setup"]):
-            self._update_ai_status("Executing: Navigating to Settings...")
-            self.show_tutorial()
-            return
-
-        # Task 2: Save Settings (If on settings screen)
-        if self.current_screen == "settings" and "save" in command:
-            self._update_ai_status("Executing: Saving Settings...")
-            self._finish_tutorial()
-            return
-
-        # Task 3: Match Produce Item & Add to Cart
-        for name, price, icon in PRODUCTS_LIST:
-            clean_name = name.lower().replace("organic ", "").replace("fresh ", "").replace("sweet ", "").replace("ripe ", "")
-            single_words = clean_name.split()
-
-            if clean_name in command or any(w in command for w in single_words):
-                self._update_ai_status(f"Executing: Adding {name} to cart...")
-                self._on_product_clicked(name)
-                return
-
-        # Default fallback
-        self._update_ai_status(f"Unrecognized action: \"{command}\"")
-
-    # ==========================================
-    # 4. BACKGROUND SECURITY RECOGNITION
-    # ==========================================
+    # --- BACKGROUND SPEECH MONITORING ---
     def _start_speech_recognition(self):
         if not SPEECH_SUPPORTED or not self.recognizer:
-            self._update_status("● Speech Libraries Missing (pip install SpeechRecognition pyaudio)", THEME["status_error"])
+            self._update_status("● Speech Libraries Missing", THEME["status_error"])
             return
 
         try:
@@ -534,29 +431,35 @@ class BobShopApp(tk.Tk):
             return
 
         while self.is_listening:
-            if self.is_ai_active:
-                time.sleep(0.5)
-                continue
-
             try:
                 with mic as source:
                     audio = self.recognizer.listen(source, timeout=3, phrase_time_limit=6)
 
                 detected_text = self.recognizer.recognize_google(audio).lower()
-                print(f"[Mic Heard]: '{detected_text}'")
-
                 target_phrase = self.config_data.get("trigger_phrase", "").lower()
+
                 if target_phrase in detected_text:
-                    self._trigger_alert(detected_text)
+                    self._trigger_voice_alert(detected_text)
 
             except (sr.WaitTimeoutError, sr.UnknownValueError):
                 pass
-            except sr.RequestError:
-                self._update_status("Speech Network Error", THEME["status_error"])
-                time.sleep(3)
-                self._update_status("Live Protection Active", THEME["status_active"])
             except Exception:
                 time.sleep(1)
+
+    def _trigger_voice_alert(self, detected_text):
+        """Triggers real SMS alerts for all configured contacts when voice phrase is spoken."""
+        contacts = list(self.config_data.get("fruit_contacts", {}).values())
+        unique_numbers = list(set(contacts))
+
+        sms_message = f"🚨 EMERGENCY ALERT: Secret phrase detected! Audio: '{detected_text}'"
+
+        for number in unique_numbers:
+            send_real_sms(number, sms_message)
+
+        self.after(0, lambda: messagebox.showwarning(
+            "Emergency Protocol Active",
+            f"Voice phrase detected!\n\nRecognized Audio: '{detected_text}'\n\n📲 Dispatching SMS alerts to {len(unique_numbers)} emergency contact numbers."
+        ))
 
     def _update_status(self, message, color):
         self.mic_status_text = message
@@ -570,27 +473,11 @@ class BobShopApp(tk.Tk):
                 self.canvas_pulse.delete("all")
                 self.canvas_pulse.create_oval(1, 1, 11, 11, fill=self.mic_status_color, outline="")
 
-    def _trigger_alert(self, detected_text):
-        contacts_summary = ", ".join(self.config_data.get("fruit_contacts", {}).values())
-        print("\n" + "="*50)
-        print("🚨 [VOICE PROTOCOL ACTIVATED] 🚨")
-        print(f"Detected Secret Phrase: '{detected_text}'")
-        print(f"Notifying Emergency Contacts: {contacts_summary}")
-        print("="*50 + "\n")
-
-        self.after(0, lambda: messagebox.showwarning(
-            "Emergency Protocol Active",
-            f"[TEST MODE] Voice phrase detected!\n\nRecognized Audio: '{detected_text}'\n\nAlert sent to contacts:\n{contacts_summary}"
-        ))
-
     def _clear_window(self):
         for widget in self.winfo_children():
             widget.destroy()
 
 
-# ==========================================
-# EXECUTION ENTRY POINT
-# ==========================================
 if __name__ == "__main__":
     app = BobShopApp()
     app.mainloop()
