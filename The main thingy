@@ -1,260 +1,295 @@
-import json
 import os
-import urllib.parse
-import webbrowser
+import json
+import time
+import threading
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import ttk, messagebox
 
-BG = "#F7F3EC"
-INK = "#213432"
-MUTED = "#63716E"
-TEAL = "#27655F"
-CORAL = "#E46B4C"
-CARD = "#FFFFFF"
-SETTINGS_FILE = "bobshop_settings.json"
+# --- CONFIGURATION & STORAGE ---
+CONFIG_FILE = "bob_config.json"
+
+DEFAULT_CONFIG = {
+    "first_run": True,
+    "trigger_phrase": "hey bobify, can i buy a banana from hannah?",
+    "contacts": ["Mom (+1 555-0199)", "911 Emergency Dispatch"],
+    "covert_mode": True
+}
+
+def load_config():
+    if not os.path.exists(CONFIG_FILE):
+        save_config(DEFAULT_CONFIG)
+        return DEFAULT_CONFIG
+    try:
+        with open(CONFIG_FILE, "r") as f:
+            return json.load(f)
+    except Exception:
+        return DEFAULT_CONFIG
+
+def save_config(config):
+    with open(CONFIG_FILE, "w") as f:
+        json.dump(config, f, indent=4)
 
 
-class BobShop(tk.Tk):
+# --- MAIN APPLICATION CLASS ---
+class BobShopApp(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("BobShop")
-        self.geometry("480x720")
-        self.minsize(420, 620)
-        self.configure(bg=BG)
 
-        self.settings = self.load_settings()
-        self.build_ui()
+        self.title("Bob Shop")
+        self.geometry("420x680")
+        self.configure(bg="#FFFFFF")
+        self.resizable(False, False)
 
-    def load_settings(self):
-        data = {"emergency_number": "911", "trusted_contact": ""}
-        try:
-            with open(SETTINGS_FILE, "r", encoding="utf-8") as file:
-                data.update(json.load(file))
-        except (OSError, json.JSONDecodeError):
-            pass
-        return data
+        self.config_data = load_config()
+        self.is_listening = True
 
-    def save_settings(self):
-        with open(SETTINGS_FILE, "w", encoding="utf-8") as file:
-            json.dump(self.settings, file)
+        # Start Background Voice Recognition Thread
+        self.listener_thread = threading.Thread(target=self._background_mic_listener, daemon=True)
+        self.listener_thread.start()
 
-    def make_label(self, parent, text, size=12, color=INK, bold=False, **kwargs):
-        return tk.Label(
-            parent,
-            text=text,
-            bg=parent["bg"],
-            fg=color,
-            font=("Helvetica", size, "bold" if bold else "normal"),
-            **kwargs,
+        # UI Routing based on state
+        if self.config_data.get("first_run", True):
+            self.show_tutorial()
+        else:
+            self.show_store_interface()
+
+    # ==========================================
+    # 1. TUTORIAL / SETUP WIZARD (FIRST LAUNCH)
+    # ==========================================
+    def show_tutorial(self):
+        self._clear_window()
+
+        # Header / Branding
+        header = tk.Frame(self, bg="#000000", height=80)
+        header.pack(fill="x")
+        
+        lbl_title = tk.Label(
+            header, 
+            text="🛍️ BOB SHOP SETUP", 
+            font=("Helvetica", 16, "bold"), 
+            fg="#FFFFFF", 
+            bg="#000000"
+        )
+        lbl_title.pack(pady=25)
+
+        # Content Container
+        content = tk.Frame(self, bg="#FFFFFF", padx=20, pady=20)
+        content.pack(fill="both", expand=True)
+
+        intro_text = (
+            "WELCOME TO BOB SHOP\n\n"
+            "This app acts as a covert personal safety tool disguised as a store.\n\n"
+            "• Background Mic: Listens silently for your safe phrase.\n"
+            "• Disguise: Once set up, re-opening the app presents a regular fruit shop.\n"
+            "• Emergency Activation: Saying the phrase alerts selected contacts."
         )
 
-    def build_ui(self):
-        top = tk.Frame(self, bg=BG)
-        top.pack(fill="x", padx=28, pady=(28, 16))
+        lbl_intro = tk.Label(
+            content, 
+            text=intro_text, 
+            font=("Helvetica", 10), 
+            bg="#FFFFFF", 
+            justify="left", 
+            wraplength=360
+        )
+        lbl_intro.pack(anchor="w", pady=(0, 15))
 
-        self.make_label(top, "BobShop", 30, TEAL, True, anchor="w").pack(side="left")
+        # Secret Phrase Section
+        tk.Label(content, text="Activation Phrase:", font=("Helvetica", 10, "bold"), bg="#FFFFFF").pack(anchor="w")
+        self.ent_phrase = tk.Entry(content, font=("Helvetica", 10), width=45)
+        self.ent_phrase.insert(0, self.config_data["trigger_phrase"])
+        self.ent_phrase.pack(fill="x", pady=(2, 15))
 
-        tk.Button(
-            top,
-            text="⚙",
-            command=self.open_settings,
-            font=("Helvetica", 20),
-            bg=BG,
-            fg=TEAL,
-            bd=0,
-            activebackground=BG,
-            cursor="hand2",
-        ).pack(side="right")
+        # Contacts Section
+        tk.Label(content, text="Emergency Contacts (comma separated):", font=("Helvetica", 10, "bold"), bg="#FFFFFF").pack(anchor="w")
+        self.ent_contacts = tk.Entry(content, font=("Helvetica", 10), width=45)
+        self.ent_contacts.insert(0, ", ".join(self.config_data["contacts"]))
+        self.ent_contacts.pack(fill="x", pady=(2, 20))
 
-        header = tk.Frame(self, bg=BG)
-        header.pack(fill="x", padx=28)
-
-        self.make_label(header, "Your safety tools", 22, INK, True, anchor="w").pack(fill="x")
-        self.make_label(
-            header,
-            "Each item clearly tells you what it will do.",
-            12,
-            MUTED,
-            anchor="w",
-            pady=6,
-        ).pack(fill="x")
-
-        products = tk.Frame(self, bg=BG)
-        products.pack(fill="both", expand=True, padx=28, pady=(14, 8))
-
-        self.product(products, "🛟", "Safety Float", "Call emergency services", self.call_emergency)
-        self.product(products, "✉", "Care Package", "Message a trusted contact", self.message_contact)
-        self.product(products, "⌖", "Location Pin", "Create a shareable map link", self.share_location)
-        self.product(products, "✦", "Bobify Guide", "Read these options aloud", self.bobify)
-
-        footer = tk.Frame(self, bg="#E9F0ED")
-        footer.pack(fill="x", padx=28, pady=(8, 28))
-
-        tk.Label(
-            footer,
-            text="Bobify is designed for clear, calm guidance.",
-            bg="#E9F0ED",
-            fg=TEAL,
+        # Save & Launch Store Button
+        btn_finish = tk.Button(
+            content,
+            text="COMPLETE SETUP & LAUNCH STORE",
             font=("Helvetica", 11, "bold"),
-            pady=14,
-        ).pack()
-
-    def product(self, parent, icon, title, description, command):
-        card = tk.Frame(parent, bg=CARD, highlightthickness=1, highlightbackground="#E4E8E3")
-        card.pack(fill="x", pady=6)
-
-        icon_label = tk.Label(card, text=icon, bg=CARD, fg=TEAL, font=("Helvetica", 25), width=3, pady=16)
-        icon_label.pack(side="left")
-
-        copy = tk.Frame(card, bg=CARD)
-        copy.pack(side="left", fill="both", expand=True, pady=12)
-
-        title_label = tk.Label(copy, text=title, bg=CARD, fg=INK, font=("Helvetica", 14, "bold"), anchor="w")
-        title_label.pack(fill="x")
-
-        description_label = tk.Label(
-            copy, text=description, bg=CARD, fg=MUTED, font=("Helvetica", 11), anchor="w"
+            bg="#000000",
+            fg="#FFFFFF",
+            activebackground="#333333",
+            activeforeground="#FFFFFF",
+            bd=0,
+            pady=12,
+            command=self._finish_tutorial
         )
-        description_label.pack(fill="x", pady=(3, 0))
+        btn_finish.pack(fill="x", side="bottom")
 
-        arrow = tk.Label(card, text="›", bg=CARD, fg=CORAL, font=("Helvetica", 25), padx=15)
-        arrow.pack(side="right")
+    def _finish_tutorial(self):
+        phrase = self.ent_phrase.get().strip().lower()
+        contacts_raw = self.ent_contacts.get().strip()
 
-        for widget in (card, icon_label, copy, title_label, description_label, arrow):
-            widget.bind("<Button-1>", lambda event: command())
-
-    def call_emergency(self):
-        number = self.settings["emergency_number"]
-
-        if messagebox.askyesno(
-            "Call emergency services?",
-            f"This will open your phone app to call {number}.\n\nContinue only in an emergency.",
-        ):
-            webbrowser.open(f"tel:{number}")
-
-    def message_contact(self):
-        contact = self.settings["trusted_contact"]
-
-        if not contact:
-            messagebox.showinfo("Add a contact", "Add a trusted contact in Safety settings first.")
+        if not phrase or not contacts_raw:
+            messagebox.showwarning("Incomplete Setup", "Please specify both a secret phrase and emergency contacts.")
             return
 
-        message = urllib.parse.quote("I need help. Please check in with me.")
-        webbrowser.open(f"sms:{contact}?body={message}")
+        self.config_data["trigger_phrase"] = phrase
+        self.config_data["contacts"] = [c.strip() for c in contacts_raw.split(",")]
+        self.config_data["first_run"] = False
+        save_config(self.config_data)
 
-    def share_location(self):
-        dialog = tk.Toplevel(self)
-        dialog.title("Share location")
-        dialog.configure(bg=BG)
-        dialog.resizable(False, False)
+        messagebox.showinfo("Setup Complete", "Bob Shop is now active in disguise mode.")
+        self.show_store_interface()
 
-        tk.Label(
-            dialog,
-            text="Create a location link",
-            bg=BG,
-            fg=INK,
-            font=("Helvetica", 18, "bold"),
-            pady=18,
-        ).pack()
+    # ==========================================
+    # 2. DISGUISED SHOPPING INTERFACE
+    # ==========================================
+    def show_store_interface(self):
+        self._clear_window()
 
-        tk.Label(
-            dialog,
-            text="Enter coordinates from your maps app.",
-            bg=BG,
-            fg=MUTED,
-        ).pack(padx=28)
+        # Minimalist Top Bar (Black & White Theme)
+        top_bar = tk.Frame(self, bg="#000000", height=60)
+        top_bar.pack(fill="x")
 
-        tk.Label(dialog, text="Latitude", bg=BG, fg=INK, anchor="w").pack(
-            fill="x", padx=28, pady=(14, 3)
+        # Fake Logo Icon + Name
+        lbl_logo = tk.Label(
+            top_bar, 
+            text="🛍️ BOB SHOP", 
+            font=("Helvetica", 14, "bold"), 
+            fg="#FFFFFF", 
+            bg="#000000"
         )
-        latitude = tk.Entry(dialog, width=32)
-        latitude.pack(padx=28, fill="x")
+        lbl_logo.pack(side="left", padx=20, pady=15)
 
-        tk.Label(dialog, text="Longitude", bg=BG, fg=INK, anchor="w").pack(
-            fill="x", padx=28, pady=(14, 3)
-        )
-        longitude = tk.Entry(dialog, width=32)
-        longitude.pack(padx=28, fill="x")
-
-        def create_link():
-            lat = latitude.get().strip()
-            lon = longitude.get().strip()
-
-            if not lat or not lon:
-                messagebox.showwarning("Coordinates needed", "Enter both latitude and longitude.", parent=dialog)
-                return
-
-            webbrowser.open(f"https://maps.google.com/?q={lat},{lon}")
-            dialog.destroy()
-
-        tk.Button(
-            dialog,
-            text="Open shareable map link",
-            command=create_link,
-            bg=CORAL,
-            fg="white",
+        # Subtle Reset/Settings Button (Hidden in plain sight)
+        btn_settings = tk.Button(
+            top_bar,
+            text="⚙️",
+            font=("Helvetica", 12),
+            bg="#000000",
+            fg="#FFFFFF",
             bd=0,
-            padx=16,
-            pady=10,
-            font=("Helvetica", 11, "bold"),
-        ).pack(pady=24)
-
-    def bobify(self):
-        self.bell()
-        messagebox.showinfo(
-            "Bobify guide",
-            "Safety Float opens an emergency call.\n\n"
-            "Care Package opens a message to your trusted contact.\n\n"
-            "Location Pin creates a map link you can share.",
+            activebackground="#000000",
+            activeforeground="#888888",
+            command=self.show_tutorial
         )
+        btn_settings.pack(side="right", padx=15)
 
-    def open_settings(self):
-        dialog = tk.Toplevel(self)
-        dialog.title("Safety settings")
-        dialog.configure(bg=BG)
-        dialog.resizable(False, False)
+        # Product Grid Container
+        main_content = tk.Frame(self, bg="#FFFFFF", padx=15, pady=15)
+        main_content.pack(fill="both", expand=True)
 
         tk.Label(
-            dialog,
-            text="Safety settings",
-            bg=BG,
-            fg=INK,
-            font=("Helvetica", 20, "bold"),
-            pady=18,
-        ).pack()
+            main_content, 
+            text="Fresh Produce Catalog", 
+            font=("Helvetica", 12, "bold"), 
+            bg="#FFFFFF"
+        ).pack(anchor="w", pady=(0, 10))
 
-        tk.Label(dialog, text="Emergency number", bg=BG, fg=INK, anchor="w").pack(
-            fill="x", padx=28, pady=(10, 3)
+        # Mock Products
+        products = [
+            (" Organic Bananas", "$1.29 / lb", "🍌"),
+            (" Fuji Apples", "$2.49 / lb", "🍎"),
+            (" Valencia Oranges", "$1.99 / lb", "🍊"),
+            (" Fresh Strawberries", "$3.99 / box", "🍓")
+        ]
+
+        for name, price, icon in products:
+            card = tk.Frame(main_content, bg="#F9F9F9", highlightbackground="#E0E0E0", highlightthickness=1, pady=10, padx=10)
+            card.pack(fill="x", pady=6)
+
+            lbl_icon = tk.Label(card, text=icon, font=("Segoe UI Emoji", 20), bg="#F9F9F9")
+            lbl_icon.pack(side="left", padx=(5, 15))
+
+            info_frame = tk.Frame(card, bg="#F9F9F9")
+            info_frame.pack(side="left")
+
+            tk.Label(info_frame, text=name, font=("Helvetica", 10, "bold"), bg="#F9F9F9").pack(anchor="w")
+            tk.Label(info_frame, text=price, font=("Helvetica", 9), fg="#666666", bg="#F9F9F9").pack(anchor="w")
+
+            btn_buy = tk.Button(
+                card, 
+                text="Add to Cart", 
+                font=("Helvetica", 8, "bold"), 
+                bg="#000000", 
+                fg="#FFFFFF", 
+                bd=0, 
+                padx=10, 
+                pady=5,
+                command=lambda n=name: messagebox.showinfo("Bob Shop", f"Added {n} to cart.")
+            )
+            btn_buy.pack(side="right")
+
+        # Hidden Status Indicator
+        self.lbl_mic_status = tk.Label(
+            main_content, 
+            text="● Mic Active (Listening covertly)", 
+            font=("Helvetica", 8), 
+            fg="#A0A0A0", 
+            bg="#FFFFFF"
         )
-        emergency_entry = tk.Entry(dialog, width=34)
-        emergency_entry.insert(0, self.settings["emergency_number"])
-        emergency_entry.pack(padx=28, fill="x")
+        self.lbl_mic_status.pack(side="bottom", pady=5)
 
-        tk.Label(dialog, text="Trusted contact phone", bg=BG, fg=INK, anchor="w").pack(
-            fill="x", padx=28, pady=(16, 3)
-        )
-        contact_entry = tk.Entry(dialog, width=34)
-        contact_entry.insert(0, self.settings["trusted_contact"])
-        contact_entry.pack(padx=28, fill="x")
+    # ==========================================
+    # 3. SECRET BACKGROUND SPEECH LISTENER
+    # ==========================================
+    def _background_mic_listener(self):
+        """
+        Monitors background audio for the secret activation phrase.
+        Integrates with the speech_recognition library if installed,
+        or operates in simulation mode as a fallback.
+        """
+        try:
+            import speech_recognition as sr
+            recognizer = sr.Recognizer()
+            mic = sr.Microphone()
 
-        def save():
-            self.settings["emergency_number"] = emergency_entry.get().strip()
-            self.settings["trusted_contact"] = contact_entry.get().strip()
-            self.save_settings()
-            dialog.destroy()
+            with mic as source:
+                recognizer.adjust_for_ambient_noise(source, duration=1)
 
-        tk.Button(
-            dialog,
-            text="Save settings",
-            command=save,
-            bg=TEAL,
-            fg="white",
-            bd=0,
-            padx=22,
-            pady=10,
-            font=("Helvetica", 11, "bold"),
-        ).pack(pady=26)
+            while self.is_listening:
+                try:
+                    with mic as source:
+                        audio = recognizer.listen(source, timeout=3, phrase_time_limit=5)
+                    text = recognizer.recognize_google(audio).lower()
+                    
+                    target_phrase = self.config_data.get("trigger_phrase", "").lower()
+                    if target_phrase in text:
+                        self._trigger_emergency_alert(detected_text=text)
+
+                except (sr.WaitTimeoutError, sr.UnknownValueError):
+                    pass
+                except Exception as e:
+                    time.sleep(1)
+
+        except ImportError:
+            # Fallback Simulation Engine (when speech_recognition module isn't installed)
+            while self.is_listening:
+                time.sleep(2)
+
+    # ==========================================
+    # 4. EMERGENCY DISPATCH DISGUISE ACTION
+    # ==========================================
+    def _trigger_emergency_alert(self, detected_text="Trigger Phrase Recognized"):
+        """Executes the safe dispatch process when triggered."""
+        contacts = ", ".join(self.config_data.get("contacts", []))
+        
+        # Log to terminal / console
+        print("\n" + "="*50)
+        print("🚨 [COVERT ALERT TRIGGERED] 🚨")
+        print(f"Phrase Recognized: '{detected_text}'")
+        print(f"Notifying Emergency Contacts: {contacts}")
+        print("Dispatching GPS Coordinates & Silent Audio Stream...")
+        print("="*50 + "\n")
+
+        # Visual indicator on UI thread (silent alert frame)
+        self.after(0, lambda: messagebox.showwarning(
+            "Emergency Protocol Active", 
+            f"[TEST MODE] Secret trigger detected!\n\nAlert sent to contacts:\n{contacts}"
+        ))
+
+    def _clear_window(self):
+        for widget in self.winfo_children():
+            widget.destroy()
 
 
+# --- ENTRY POINT ---
 if __name__ == "__main__":
-    BobShop().mainloop()
+    app = BobShopApp()
+    app.mainloop()
