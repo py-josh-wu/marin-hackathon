@@ -1,2 +1,333 @@
-well, here you go:https://github.com/leoquynhstafford-cloud/ASCII-tower-defense
-w webite https://c8c4d728-1414-4f84-a930-801e3849573a-00-x3l7voxrpqxc.picard.repl.co/#concept
+//well, here you go:https://github.com/leoquynhstafford-cloud/ASCII-tower-defense
+//w webite https://c8c4d728-1414-4f84-a930-801e3849573a-00-x3l7voxrpqxc.picard.repl.co/#concept
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bob Shop - Fresh Quality Produce</title>
+    <meta name="description" content="Bob Shop - Premium organic fruits, delivered fresh daily.">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <!-- Top Navigation Bar -->
+    <header class="navbar">
+        <div class="nav-container">
+            <div class="brand" id="brandLogo" title="Bob Shop (Hold 3s for settings)">
+                <svg class="brand-logo" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="100" height="100" rx="20" fill="#000000"/>
+                    <!-- Shopping Bag Silhouette in White -->
+                    <path d="M32 38V30C32 20.0589 40.0589 12 50 12C59.9411 12 68 20.0589 68 30V38H76C79.3137 38 82 40.6863 82 44V80C82 83.3137 79.3137 86 76 86H24C20.6863 86 18 83.3137 18 80V44C18 40.6863 20.6863 38 24 38H32ZM40 38H60V30C60 24.4772 55.5228 20 50 20C44.4772 20 40 24.4772 40 30V38Z" fill="#FFFFFF"/>
+                </svg>
+                <div class="brand-text">
+                    <span class="brand-name">BOB SHOP</span>
+                    <span class="brand-tagline">ORGANIC MARKET</span>
+                </div>
+            </div>
+
+            <!-- Stealth Mic Status Pulse (Subtle) -->
+            <div class="mic-status-indicator" id="micIndicator" title="Stealth listening active">
+                <span class="pulse-dot"></span>
+                <span class="status-label" id="micStatusText">LISTENING</span>
+            </div>
+
+            <div class="nav-actions">
+                <button class="nav-btn cart-btn" id="cartBtn">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <path d="M16 10a4 4 0 0 1-8 0"></path>
+                    </svg>
+                    <span class="badge" id="cartBadge">0</span>
+                </button>
+                <button class="nav-btn setup-toggle-btn" id="openSetupBtn" title="Setup & Voice Configuration">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area: Disguised Store -->
+    <main class="store-container" id="storeApp">
+        <!-- Hero Banner -->
+        <section class="hero-banner">
+            <div class="hero-content">
+                <span class="hero-tag">⚡ Fresh Daily Harvest</span>
+                <h1>Farm Fresh Produce, Straight to Your Door</h1>
+                <p>Order high quality organic bananas, apples, citrus, and seasonal fruits in seconds.</p>
+                <div class="search-bar">
+                    <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                    <input type="text" placeholder="Search bananas, apples, berries..." id="searchInput">
+                </div>
+            </div>
+        </section>
+
+        <!-- Product Grid -->
+        <section class="catalog-section">
+            <div class="section-header">
+                <h2>Featured Products</h2>
+                <div class="category-pills">
+                    <button class="pill active">All Produce</button>
+                    <button class="pill">Bananas & Tropical</button>
+                    <button class="pill">Apples & Pears</button>
+                    <button class="pill">Berries</button>
+                </div>
+            </div>
+
+            <div class="product-grid" id="productGrid">
+                <!-- Injected via JS -->
+            </div>
+        </section>
+
+        <!-- Live Audio Simulation / Stealth Voice Test Bar -->
+        <section class="stealth-tester-card">
+            <div class="tester-header">
+                <span class="tester-title">🎙️ Stealth Voice Recognition Simulator</span>
+                <span class="tester-subtitle">Speak aloud or test phrases discreetly</span>
+            </div>
+            <div class="tester-body">
+                <div class="transcript-display" id="transcriptDisplay">
+                    <span class="transcript-placeholder">Listening continuously... Say your trigger phrase or type below to test.</span>
+                </div>
+                <div class="test-input-row">
+                    <input type="text" id="simulatedPhraseInput" placeholder='Try: "HEY BOBIFY, CAN I BUY A BANANA FROM HANNAH?"'>
+                    <button id="testPhraseBtn" class="btn-primary">Simulate Voice Input</button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Shopping Cart Modal -->
+    <div class="modal-overlay" id="cartModal">
+        <div class="modal-card cart-modal-card">
+            <div class="modal-header">
+                <h3>Shopping Cart</h3>
+                <button class="close-btn" id="closeCartBtn">&times;</button>
+            </div>
+            <div class="cart-items-list" id="cartItemsList">
+                <p class="empty-cart-msg">Your shopping cart is empty.</p>
+            </div>
+            <div class="cart-footer">
+                <div class="total-row">
+                    <span>Total:</span>
+                    <strong id="cartTotal">$0.00</strong>
+                </div>
+                <button class="btn-checkout" onclick="alert('Bob Shop: Items added to order dispatch!')">Proceed to Checkout</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Onboarding & Voice Alert Setup Tutorial Modal -->
+    <div class="modal-overlay active" id="setupModal">
+        <div class="modal-card setup-modal-card">
+            <div class="setup-header">
+                <div class="setup-brand-icon">
+                    <svg viewBox="0 0 100 100" fill="none">
+                        <rect width="100" height="100" rx="20" fill="#000000"/>
+                        <path d="M32 38V30C32 20.0589 40.0589 12 50 12C59.9411 12 68 20.0589 68 30V38H76C79.3137 38 82 40.6863 82 44V80C82 83.3137 79.3137 86 76 86H24C20.6863 86 18 83.3137 18 80V44C18 40.6863 20.6863 38 24 38H32ZM40 38H60V30C60 24.4772 55.5228 20 50 20C44.4772 20 40 24.4772 40 30V38Z" fill="#FFFFFF"/>
+                    </svg>
+                </div>
+                <div>
+                    <h2>Bob Shop Setup & Safety Tutorial</h2>
+                    <p class="setup-subtitle">Discreet Voice-Activated Safety & Emergency Dispatch</p>
+                </div>
+            </div>
+
+            <!-- Tab Navigation -->
+            <div class="setup-tabs">
+                <button class="tab-btn active" data-tab="tab-overview">1. Overview</button>
+                <button class="tab-btn" data-tab="tab-phrases">2. Activation Phrases</button>
+                <button class="tab-btn" data-tab="tab-contacts">3. Emergency Contacts</button>
+                <button class="tab-btn" data-tab="tab-ai">4. AI & Stealth Mode</button>
+            </div>
+
+            <!-- Tab 1: Overview -->
+            <div class="tab-content active" id="tab-overview">
+                <div class="info-banner">
+                    <div class="info-icon">🛡️</div>
+                    <div class="info-text">
+                        <strong>Discreet Personal Protection</strong>
+                        <p>Bob Shop appears as an ordinary fruit shopping app to anyone looking at your screen. In the background, it actively listens for emergency phrase triggers to contact 911 or alert trusted loved ones with your GPS location.</p>
+                    </div>
+                </div>
+
+                <div class="steps-grid">
+                    <div class="step-card">
+                        <div class="step-num">1</div>
+                        <h4>Cover Disguise</h4>
+                        <p>When opened normally, Bob Shop displays bananas, apples, and fruit listings. Shopping interactions function as a complete facade.</p>
+                    </div>
+                    <div class="step-card">
+                        <div class="step-num">2</div>
+                        <h4>Background Microphone</h4>
+                        <p>A covert speech engine starts running immediately when you launch the app, continuously matching spoken sentences.</p>
+                    </div>
+                    <div class="step-card">
+                        <div class="step-num">3</div>
+                        <h4>Casual Voice Phrases</h4>
+                        <p>Say innocuous phrases like <em>"HEY BOBIFY, CAN I BUY A BANANA FROM HANNAH?"</em> to secretly alert emergency contacts or 911.</p>
+                    </div>
+                    <div class="step-card">
+                        <div class="step-num">4</div>
+                        <h4>Stealth Access</h4>
+                        <p>Long press the "Bob Shop" logo for 3 seconds anytime to return to this configuration menu.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 2: Activation Phrases -->
+            <div class="tab-content" id="tab-phrases">
+                <h3>Configure Emergency Trigger Phrases</h3>
+                <p class="section-desc">Define natural phrases you can say casually in uncomfortable or dangerous situations.</p>
+
+                <div class="phrase-config-list">
+                    <div class="phrase-item">
+                        <div class="phrase-header">
+                            <span class="phrase-tag emergency">911 + Contacts Alert</span>
+                            <span class="default-badge">Primary Trigger</span>
+                        </div>
+                        <input type="text" class="input-field phrase-input" id="phrasePrimary" value="HEY BOBIFY, CAN I BUY A BANANA FROM HANNAH?">
+                        <small>Action: Triggers silent emergency alert to 911 and broadcasts location to all selected emergency contacts.</small>
+                    </div>
+
+                    <div class="phrase-item">
+                        <div class="phrase-header">
+                            <span class="phrase-tag warning">Contacts Only Alert</span>
+                        </div>
+                        <input type="text" class="input-field phrase-input" id="phraseSecondary" value="IS THE ORGANIC APPLE IN STOCK TODAY?">
+                        <small>Action: Sends covert SMS with live location to selected contacts without dialing 911.</small>
+                    </div>
+
+                    <div class="phrase-item">
+                        <div class="phrase-header">
+                            <span class="phrase-tag info">Fake Call / Fake Order Callback</span>
+                        </div>
+                        <input type="text" class="input-field phrase-input" id="phraseCall" value="PLEASE CANCEL MY BANANA ORDER">
+                        <small>Action: Triggers an instant realistic incoming call simulation to give you an excuse to exit.</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 3: Emergency Contacts -->
+            <div class="tab-content" id="tab-contacts">
+                <div class="contacts-header-row">
+                    <div>
+                        <h3>Selected Emergency Contacts</h3>
+                        <p class="section-desc">Select who receives notifications when trigger phrases are spoken.</p>
+                    </div>
+                    <button class="btn-secondary" id="addContactBtn">+ Add Contact</button>
+                </div>
+
+                <div class="contacts-list" id="contactsList">
+                    <!-- Dynamic contacts injected via JS -->
+                </div>
+
+                <div class="emergency-911-box">
+                    <label class="checkbox-container">
+                        <input type="checkbox" id="enable911" checked>
+                        <span class="checkmark"></span>
+                        <div class="checkbox-label-text">
+                            <strong>Include 911 Emergency Dispatch Simulation</strong>
+                            <p>Automatically initiate emergency service simulation payload when primary phrase is recognized.</p>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Tab 4: AI & Stealth Settings -->
+            <div class="tab-content" id="tab-ai">
+                <h3>AI Voice Assistant & Stealth Settings</h3>
+                <p class="section-desc">Customize how the covert engine behaves behind the shopping storefront disguise.</p>
+
+                <div class="settings-form">
+                    <div class="form-group">
+                        <label>Voice Sensitivity / Match Threshold</label>
+                        <select class="input-field" id="sensitivitySelect">
+                            <option value="high">High Sensitivity (Fuzzy Phonetic Match)</option>
+                            <option value="medium" selected>Standard Match (Recommended)</option>
+                            <option value="strict">Exact Phrase Only</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Stealth Visual Feedback</label>
+                        <select class="input-field" id="stealthFeedbackSelect">
+                            <option value="silent">Completely Silent (No screen changes during trigger)</option>
+                            <option value="subtle" selected>Subtle Dot Pulse in Header</option>
+                            <option value="confirmation">Show Disguised "Order Confirmation" Toast</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Auto-Start Microphone</label>
+                        <label class="checkbox-container margin-top">
+                            <input type="checkbox" id="autoStartMic" checked>
+                            <span class="checkmark"></span>
+                            <span>Turn microphone on automatically whenever Bob Shop is opened</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Setup Footer -->
+            <div class="setup-footer">
+                <div class="setup-footer-info">
+                    <span>💡 Tip: Hold the logo for 3 seconds to return here anytime.</span>
+                </div>
+                <button class="btn-primary-large" id="finishSetupBtn">Save & Start Bob Shop Disguise</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Live Emergency Alert Dispatch Modal / Visualizer Overlay -->
+    <div class="modal-overlay" id="emergencyDispatchModal">
+        <div class="modal-card emergency-alert-card">
+            <div class="emergency-badge-header">
+                <span class="sos-icon">🚨</span>
+                <div>
+                    <h2>EMERGENCY ALERT ACTIVATED</h2>
+                    <p id="dispatchStatusText">Voice Trigger Recognized! Dispatching emergency payload...</p>
+                </div>
+            </div>
+
+            <div class="emergency-details">
+                <div class="detail-box">
+                    <span class="label">Trigger Phrase Recognized:</span>
+                    <strong id="recognizedPhraseText">"HEY BOBIFY, CAN I BUY A BANANA FROM HANNAH?"</strong>
+                </div>
+
+                <div class="detail-box">
+                    <span class="label">Captured GPS Location:</span>
+                    <strong id="gpsLocationText">Fetching live GPS coordinates...</strong>
+                </div>
+
+                <div class="dispatch-actions-status">
+                    <h4>Dispatch Status:</h4>
+                    <ul class="status-list" id="dispatchStatusList">
+                        <li class="success">✓ Microphone trigger verified</li>
+                        <li class="pending" id="status911">⏳ Simulated 911 Call Center Notification...</li>
+                        <li class="pending" id="statusSMS">⏳ Dispatching SMS with location to contacts...</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="emergency-footer">
+                <button class="btn-danger" id="cancelSosBtn">Cancel Alert (False Alarm)</button>
+                <button class="btn-primary" id="closeSosBtn">Return to Bob Shop Disguise</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
