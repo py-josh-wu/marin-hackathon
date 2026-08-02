@@ -28,28 +28,24 @@ except ImportError:
 
 
 # ==========================================
-# 2. TWILIO CONFIGURATION (INSERT YOUR KEYS)
+# 2. TWILIO SMS UTILITY FUNCTION
 # ==========================================
-TWILIO_ACCOUNT_SID = "YOUR_TWILIO_ACCOUNT_SID"
-TWILIO_AUTH_TOKEN = "YOUR_TWILIO_AUTH_TOKEN"
-TWILIO_PHONE_NUMBER = "+18005550199"  # Your Twilio virtual phone number
-
-def send_real_sms(to_number, message_body):
+def send_real_sms(account_sid, auth_token, from_number, to_number, message_body):
     """Utility function to dispatch real SMS via Twilio API."""
     if not TWILIO_SUPPORTED:
         print("❌ Twilio SDK not installed. Text not sent.")
-        return False
-        
-    if TWILIO_ACCOUNT_SID == "YOUR_TWILIO_ACCOUNT_SID":
-        print("⚠️ Twilio API credentials not configured. Please add SID and Token to app.py.")
-        return False
+        return False, "Twilio SDK (twilio) is not installed. Run 'pip install twilio'."
+
+    if not account_sid or not auth_token or not from_number:
+        print("⚠️ Missing Twilio credentials in configuration.")
+        return False, "Twilio credentials incomplete. Please check Settings."
 
     def _send_thread():
         try:
-            client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+            client = Client(account_sid, auth_token)
             message = client.messages.create(
                 body=message_body,
-                from_=TWILIO_PHONE_NUMBER,
+                from_=from_number,
                 to=to_number
             )
             print(f"✅ SMS successfully sent to {to_number}! Message SID: {message.sid}")
@@ -58,7 +54,7 @@ def send_real_sms(to_number, message_body):
 
     # Send in a background thread so the GUI doesn't freeze
     threading.Thread(target=_send_thread, daemon=True).start()
-    return True
+    return True, "SMS dispatched successfully."
 
 
 # ==========================================
@@ -101,6 +97,9 @@ PRODUCTS_LIST = [
 
 DEFAULT_CONFIG = {
     "first_run": True,
+    "twilio_account_sid": "",
+    "twilio_auth_token": "",
+    "twilio_phone_number": "",
     "trigger_phrase": "hey bobify, can i buy a banana from hannah?",
     "custom_notes": "Note: This is an automated notification from Bob Shop.",
     "fruit_contacts": {
@@ -126,10 +125,9 @@ def load_config():
     try:
         with open(CONFIG_FILE, "r") as f:
             cfg = json.load(f)
-            if "fruit_contacts" not in cfg:
-                cfg["fruit_contacts"] = DEFAULT_CONFIG["fruit_contacts"]
-            if "custom_notes" not in cfg:
-                cfg["custom_notes"] = DEFAULT_CONFIG["custom_notes"]
+            for k, v in DEFAULT_CONFIG.items():
+                if k not in cfg:
+                    cfg[k] = v
             return cfg
     except Exception:
         return DEFAULT_CONFIG
@@ -230,60 +228,81 @@ class BobShopApp(tk.Tk):
             start=0, extent=180, outline=THEME["accent_primary"], width=3, style=tk.ARC
         )
 
-    # --- TUTORIAL / SETTINGS SCREEN ---
+    # --- SETTINGS & CONFIGURATION SCREEN ---
     def show_tutorial(self):
         self._clear_window()
 
-        header = tk.Frame(self, bg=THEME["nav_bg"], height=85, highlightbackground=THEME["border"], highlightthickness=1)
+        header = tk.Frame(self, bg=THEME["nav_bg"], height=75, highlightbackground=THEME["border"], highlightthickness=1)
         header.pack(fill="x")
         header.pack_propagate(False)
 
-        logo_canvas = tk.Canvas(header, bg=THEME["nav_bg"], width=50, height=50, highlightthickness=0)
-        logo_canvas.pack(side="left", padx=(25, 10), pady=15)
-        self._draw_brand_logo(logo_canvas, 25, 25, scale=1.0)
+        logo_canvas = tk.Canvas(header, bg=THEME["nav_bg"], width=45, height=45, highlightthickness=0)
+        logo_canvas.pack(side="left", padx=(20, 10), pady=12)
+        self._draw_brand_logo(logo_canvas, 22, 22, scale=0.9)
 
         title_frame = tk.Frame(header, bg=THEME["nav_bg"])
-        title_frame.pack(side="left", fill="y", pady=18)
-        tk.Label(title_frame, text="BOB SHOP SETUP", font=("Helvetica", 14, "bold"), fg=THEME["text_main"], bg=THEME["nav_bg"]).pack(anchor="w")
-        tk.Label(title_frame, text="Configure voice trigger, custom notes & target contacts", font=("Helvetica", 9), fg=THEME["text_muted"], bg=THEME["nav_bg"]).pack(anchor="w")
+        title_frame.pack(side="left", fill="y", pady=14)
+        tk.Label(title_frame, text="BOB SHOP SETTINGS", font=("Helvetica", 13, "bold"), fg=THEME["text_main"], bg=THEME["nav_bg"]).pack(anchor="w")
+        tk.Label(title_frame, text="Configure Twilio API keys, voice trigger, custom notes & target contacts", font=("Helvetica", 8), fg=THEME["text_muted"], bg=THEME["nav_bg"]).pack(anchor="w")
 
-        container = tk.Frame(self, bg=THEME["bg"], padx=30, pady=15)
+        container = tk.Frame(self, bg=THEME["bg"], padx=25, pady=10)
         container.pack(fill="both", expand=True)
 
-        # 1. Voice Phrase Card
-        card_voice = tk.Frame(container, bg=THEME["surface"], padx=16, pady=10, highlightbackground=THEME["border"], highlightthickness=1)
-        card_voice.pack(fill="x", pady=(0, 10))
+        # 1. Twilio Credentials Section
+        card_twilio = tk.Frame(container, bg=THEME["surface"], padx=14, pady=8, highlightbackground=THEME["border"], highlightthickness=1)
+        card_twilio.pack(fill="x", pady=(0, 8))
 
-        tk.Label(card_voice, text="🎙️ Secret Voice Activation Phrase", font=("Helvetica", 11, "bold"), fg=THEME["text_main"], bg=THEME["surface"]).pack(anchor="w")
-        
-        self.ent_phrase = tk.Entry(
-            card_voice, font=("Helvetica", 10), bg=THEME["bg"], fg=THEME["text_main"],
-            insertbackground=THEME["text_main"], bd=0, highlightthickness=1, highlightbackground=THEME["border"]
-        )
+        tk.Label(card_twilio, text="🔑 Twilio API Setup (Required for SMS)", font=("Helvetica", 10, "bold"), fg=THEME["text_main"], bg=THEME["surface"]).pack(anchor="w")
+
+        tw_fields_frame = tk.Frame(card_twilio, bg=THEME["surface"])
+        tw_fields_frame.pack(fill="x", pady=(4, 0))
+
+        # SID
+        tk.Label(tw_fields_frame, text="Account SID:", font=("Helvetica", 8, "bold"), fg=THEME["text_muted"], bg=THEME["surface"]).grid(row=0, column=0, sticky="w", padx=(0, 5))
+        self.ent_tw_sid = tk.Entry(tw_fields_frame, font=("Helvetica", 9), bg=THEME["bg"], fg=THEME["text_main"], bd=0, highlightthickness=1, highlightbackground=THEME["border"])
+        self.ent_tw_sid.insert(0, self.config_data.get("twilio_account_sid", ""))
+        self.ent_tw_sid.grid(row=0, column=1, sticky="ew", padx=(0, 15), ipady=3)
+
+        # Token
+        tk.Label(tw_fields_frame, text="Auth Token:", font=("Helvetica", 8, "bold"), fg=THEME["text_muted"], bg=THEME["surface"]).grid(row=0, column=2, sticky="w", padx=(0, 5))
+        self.ent_tw_token = tk.Entry(tw_fields_frame, font=("Helvetica", 9), show="*", bg=THEME["bg"], fg=THEME["text_main"], bd=0, highlightthickness=1, highlightbackground=THEME["border"])
+        self.ent_tw_token.insert(0, self.config_data.get("twilio_auth_token", ""))
+        self.ent_tw_token.grid(row=0, column=3, sticky="ew", padx=(0, 15), ipady=3)
+
+        # Phone Number
+        tk.Label(tw_fields_frame, text="Twilio Phone #:", font=("Helvetica", 8, "bold"), fg=THEME["text_muted"], bg=THEME["surface"]).grid(row=0, column=4, sticky="w", padx=(0, 5))
+        self.ent_tw_phone = tk.Entry(tw_fields_frame, font=("Helvetica", 9), bg=THEME["bg"], fg=THEME["text_main"], bd=0, highlightthickness=1, highlightbackground=THEME["border"])
+        self.ent_tw_phone.insert(0, self.config_data.get("twilio_phone_number", ""))
+        self.ent_tw_phone.grid(row=0, column=5, sticky="ew", ipady=3)
+
+        tw_fields_frame.columnconfigure(1, weight=1)
+        tw_fields_frame.columnconfigure(3, weight=1)
+        tw_fields_frame.columnconfigure(5, weight=1)
+
+        # 2. Voice Phrase & Custom Notes (Side by Side)
+        middle_frame = tk.Frame(container, bg=THEME["bg"])
+        middle_frame.pack(fill="x", pady=(0, 8))
+
+        # Voice Card
+        card_voice = tk.Frame(middle_frame, bg=THEME["surface"], padx=14, pady=8, highlightbackground=THEME["border"], highlightthickness=1)
+        card_voice.pack(side="left", fill="both", expand=True, padx=(0, 5))
+
+        tk.Label(card_voice, text="🎙️ Voice Activation Phrase", font=("Helvetica", 10, "bold"), fg=THEME["text_main"], bg=THEME["surface"]).pack(anchor="w")
+        self.ent_phrase = tk.Entry(card_voice, font=("Helvetica", 9), bg=THEME["bg"], fg=THEME["text_main"], bd=0, highlightthickness=1, highlightbackground=THEME["border"])
         self.ent_phrase.insert(0, self.config_data.get("trigger_phrase", ""))
-        self.ent_phrase.pack(fill="x", ipady=6, padx=2, pady=(4, 2))
+        self.ent_phrase.pack(fill="x", ipady=4, pady=(4, 0))
 
-        # 2. ADDITIONAL NOTES CARD (NEW)
-        card_notes = tk.Frame(container, bg=THEME["surface"], padx=16, pady=10, highlightbackground=THEME["border"], highlightthickness=1)
-        card_notes.pack(fill="x", pady=(0, 10))
+        # Notes Card
+        card_notes = tk.Frame(middle_frame, bg=THEME["surface"], padx=14, pady=8, highlightbackground=THEME["border"], highlightthickness=1)
+        card_notes.pack(side="right", fill="both", expand=True, padx=(5, 0))
 
-        tk.Label(card_notes, text="📝 Additional Message Notes", font=("Helvetica", 11, "bold"), fg=THEME["text_main"], bg=THEME["surface"]).pack(anchor="w")
-        tk.Label(
-            card_notes, 
-            text="This custom message will be appended to every SMS text sent.",
-            font=("Helvetica", 8), fg=THEME["text_muted"], bg=THEME["surface"]
-        ).pack(anchor="w", pady=(1, 4))
-
-        self.txt_notes = tk.Text(
-            card_notes, font=("Helvetica", 9), bg=THEME["bg"], fg=THEME["text_main"],
-            insertbackground=THEME["text_main"], bd=0, highlightthickness=1, highlightbackground=THEME["border"],
-            height=3
-        )
+        tk.Label(card_notes, text="📝 Additional Message Notes", font=("Helvetica", 10, "bold"), fg=THEME["text_main"], bg=THEME["surface"]).pack(anchor="w")
+        self.txt_notes = tk.Text(card_notes, font=("Helvetica", 9), bg=THEME["bg"], fg=THEME["text_main"], bd=0, highlightthickness=1, highlightbackground=THEME["border"], height=2)
         self.txt_notes.insert("1.0", self.config_data.get("custom_notes", ""))
-        self.txt_notes.pack(fill="x", padx=2, pady=(2, 2))
+        self.txt_notes.pack(fill="x", pady=(4, 0))
 
         # 3. SMS Contact Numbers Grid
-        tk.Label(container, text="📱 Target SMS Numbers for Each Item", font=("Helvetica", 11, "bold"), fg=THEME["text_main"], bg=THEME["bg"]).pack(anchor="w", pady=(2, 6))
+        tk.Label(container, text="📱 Target SMS Numbers for Each Item", font=("Helvetica", 10, "bold"), fg=THEME["text_main"], bg=THEME["bg"]).pack(anchor="w", pady=(2, 4))
 
         grid_container = tk.Frame(container, bg=THEME["bg"])
         grid_container.pack(fill="both", expand=True)
@@ -295,28 +314,25 @@ class BobShopApp(tk.Tk):
             row_idx = idx // 3
             col_idx = idx % 3
 
-            card = tk.Frame(grid_container, bg=THEME["surface"], highlightbackground=THEME["border"], highlightthickness=1, padx=10, pady=6)
-            card.grid(row=row_idx, column=col_idx, sticky="ew", padx=5, pady=4)
+            card = tk.Frame(grid_container, bg=THEME["surface"], highlightbackground=THEME["border"], highlightthickness=1, padx=8, pady=4)
+            card.grid(row=row_idx, column=col_idx, sticky="ew", padx=4, pady=3)
             grid_container.grid_columnconfigure(col_idx, weight=1)
 
-            lbl = tk.Label(card, text=f"{emoji} {name}", font=("Helvetica", 9, "bold"), fg=THEME["text_main"], bg=THEME["surface"])
+            lbl = tk.Label(card, text=f"{emoji} {name}", font=("Helvetica", 8, "bold"), fg=THEME["text_main"], bg=THEME["surface"])
             lbl.pack(anchor="w", pady=(0, 2))
 
-            ent = tk.Entry(
-                card, font=("Helvetica", 9), bg=THEME["bg"], fg=THEME["text_main"],
-                insertbackground=THEME["text_main"], bd=0, highlightthickness=1, highlightbackground=THEME["border"]
-            )
+            ent = tk.Entry(card, font=("Helvetica", 8), bg=THEME["bg"], fg=THEME["text_main"], bd=0, highlightthickness=1, highlightbackground=THEME["border"])
             ent.insert(0, current_mappings.get(name, "+15550199"))
-            ent.pack(fill="x", ipady=4)
+            ent.pack(fill="x", ipady=3)
 
             self.contact_entries[name] = ent
 
-        btn_box = tk.Frame(self, bg=THEME["bg"], pady=12)
+        btn_box = tk.Frame(self, bg=THEME["bg"], pady=10)
         btn_box.pack(fill="x", side="bottom")
 
         btn_save = RoundedButton(
             btn_box, text="Save Settings & Launch Store", command=self._finish_tutorial,
-            width=300, height=40, radius=20,
+            width=280, height=38, radius=19,
             bg_color=THEME["accent_success"], hover_color=THEME["accent_success_hover"],
             text_color="#FFFFFF", font=("Helvetica", 10, "bold")
         )
@@ -329,12 +345,18 @@ class BobShopApp(tk.Tk):
             return
 
         notes = self.txt_notes.get("1.0", tk.END).strip()
+        tw_sid = self.ent_tw_sid.get().strip()
+        tw_token = self.ent_tw_token.get().strip()
+        tw_phone = self.ent_tw_phone.get().strip()
 
         fruit_contacts = {}
         for name, ent in self.contact_entries.items():
             val = ent.get().strip()
             fruit_contacts[name] = val if val else "+15550199"
 
+        self.config_data["twilio_account_sid"] = tw_sid
+        self.config_data["twilio_auth_token"] = tw_token
+        self.config_data["twilio_phone_number"] = tw_phone
         self.config_data["trigger_phrase"] = phrase
         self.config_data["custom_notes"] = notes
         self.config_data["fruit_contacts"] = fruit_contacts
@@ -428,17 +450,20 @@ class BobShopApp(tk.Tk):
         assigned_number = self.config_data.get("fruit_contacts", {}).get(product_name, "+15550199")
         custom_note = self.config_data.get("custom_notes", "").strip()
 
-        # Build message payload including custom notes
+        sid = self.config_data.get("twilio_account_sid", "").strip()
+        token = self.config_data.get("twilio_auth_token", "").strip()
+        from_phone = self.config_data.get("twilio_phone_number", "").strip()
+
         sms_message = f"Alert: An item ({product_name}) was selected in Bob Shop."
         if custom_note:
             sms_message += f"\n\nAdditional Note:\n{custom_note}"
 
-        sent_status = send_real_sms(assigned_number, sms_message)
+        success, status_msg = send_real_sms(sid, token, from_phone, assigned_number, sms_message)
 
-        if sent_status:
+        if success:
             messagebox.showinfo("Bob Shop", f"Added {product_name} to cart.\n\n📲 SMS Alert dispatched to {assigned_number}")
         else:
-            messagebox.showinfo("Bob Shop", f"Added {product_name} to cart.\n\n⚠️ SMS not sent (Check Twilio credentials). Target: {assigned_number}")
+            messagebox.showwarning("Bob Shop", f"Added {product_name} to cart.\n\n⚠️ Could not send SMS: {status_msg}\n\nPlease check '⚙️ Settings' and configure your Twilio Account SID, Auth Token, and Phone Number.")
 
     # --- BACKGROUND SPEECH MONITORING ---
     def _start_speech_recognition(self):
@@ -483,12 +508,16 @@ class BobShopApp(tk.Tk):
         unique_numbers = list(set(contacts))
         custom_note = self.config_data.get("custom_notes", "").strip()
 
+        sid = self.config_data.get("twilio_account_sid", "").strip()
+        token = self.config_data.get("twilio_auth_token", "").strip()
+        from_phone = self.config_data.get("twilio_phone_number", "").strip()
+
         sms_message = f"🚨 EMERGENCY ALERT: Secret phrase detected! Audio: '{detected_text}'"
         if custom_note:
             sms_message += f"\n\nAdditional Note:\n{custom_note}"
 
         for number in unique_numbers:
-            send_real_sms(number, sms_message)
+            send_real_sms(sid, token, from_phone, number, sms_message)
 
         self.after(0, lambda: messagebox.showwarning(
             "Emergency Protocol Active",
