@@ -4,6 +4,7 @@ import time
 import threading
 import tkinter as tk
 from tkinter import messagebox
+import urllib.request
 
 # ==========================================
 # 1. THIRD-PARTY LIBRARIES (SPEECH & TWILIO)
@@ -28,8 +29,30 @@ except ImportError:
 
 
 # ==========================================
-# 2. TWILIO SMS UTILITY FUNCTION
+# 2. LOCATION & SMS UTILITY FUNCTIONS
 # ==========================================
+def get_current_location():
+    """Retrieves approximate location coordinates via IP geolocation services."""
+    try:
+        req = urllib.request.Request(
+            "https://ipinfo.io/json",
+            headers={"User-Agent": "Mozilla/5.0"}
+        )
+        with urllib.request.urlopen(req, timeout=4) as response:
+            data = json.loads(response.read().decode())
+            loc = data.get("loc", "").split(",")
+            city = data.get("city", "Unknown City")
+            region = data.get("region", "")
+            if len(loc) == 2:
+                lat, lng = loc[0], loc[1]
+                maps_url = f"https://maps.google.com/?q={lat},{lng}"
+                return f"{city}, {region} ({lat}, {lng})\nMaps Link: {maps_url}"
+    except Exception as e:
+        print(f"⚠️ Location lookup failed: {e}")
+    
+    return "Location Unavailable (Enable GPS/Network connection)"
+
+
 def send_real_sms(account_sid, auth_token, from_number, to_number, message_body):
     """Utility function to dispatch real SMS via Twilio API."""
     if not TWILIO_SUPPORTED:
@@ -52,7 +75,6 @@ def send_real_sms(account_sid, auth_token, from_number, to_number, message_body)
         except Exception as e:
             print(f"❌ Failed to send SMS to {to_number}: {e}")
 
-    # Send in a background thread so the GUI doesn't freeze
     threading.Thread(target=_send_thread, daemon=True).start()
     return True, "SMS dispatched successfully."
 
@@ -73,6 +95,7 @@ THEME = {
     "accent_primary_hover": "#3730A3",
     "accent_success": "#059669",
     "accent_success_hover": "#047857",
+    "accent_findmy": "#0284C7",
     "text_main": "#0F172A",
     "text_muted": "#64748B",
     "status_active": "#059669",
@@ -91,7 +114,7 @@ PRODUCTS_LIST = [
     ("Honeycrisp Apples", "$2.99 / lb", "🍎"),
     ("Ripe Mangoes", "$1.88 / ea", "🥭"),
     ("Seedless Grapes", "$3.49 / lb", "🍇"),
-    ("Golden Pineapple", "$3.99 / ea", "🍍"),
+    ("Golden Pineapple", "$3.99 / ea", "🍍"),  # <--- FIND MY LOCATION TRIGGER
     ("Sweet Watermelon", "$5.99 / ea", "🍉")
 ]
 
@@ -279,7 +302,7 @@ class BobShopApp(tk.Tk):
         tw_fields_frame.columnconfigure(3, weight=1)
         tw_fields_frame.columnconfigure(5, weight=1)
 
-        # 2. Voice Phrase & Custom Notes (Side by Side)
+        # 2. Voice Phrase & Custom Notes
         middle_frame = tk.Frame(container, bg=THEME["bg"])
         middle_frame.pack(fill="x", pady=(0, 8))
 
@@ -302,7 +325,7 @@ class BobShopApp(tk.Tk):
         self.txt_notes.pack(fill="x", pady=(4, 0))
 
         # 3. SMS Contact Numbers Grid
-        tk.Label(container, text="📱 Target SMS Numbers for Each Item", font=("Helvetica", 10, "bold"), fg=THEME["text_main"], bg=THEME["bg"]).pack(anchor="w", pady=(2, 4))
+        tk.Label(container, text="📱 Target SMS Numbers for Each Item (🍍 Golden Pineapple = Broadcast Location to ALL)", font=("Helvetica", 10, "bold"), fg=THEME["text_main"], bg=THEME["bg"]).pack(anchor="w", pady=(2, 4))
 
         grid_container = tk.Frame(container, bg=THEME["bg"])
         grid_container.pack(fill="both", expand=True)
@@ -318,7 +341,8 @@ class BobShopApp(tk.Tk):
             card.grid(row=row_idx, column=col_idx, sticky="ew", padx=4, pady=3)
             grid_container.grid_columnconfigure(col_idx, weight=1)
 
-            lbl = tk.Label(card, text=f"{emoji} {name}", font=("Helvetica", 8, "bold"), fg=THEME["text_main"], bg=THEME["surface"])
+            lbl_text = f"{emoji} {name}" + (" 📍[Find My]" if name == "Golden Pineapple" else "")
+            lbl = tk.Label(card, text=lbl_text, font=("Helvetica", 8, "bold"), fg=THEME["accent_findmy"] if name == "Golden Pineapple" else THEME["text_main"], bg=THEME["surface"])
             lbl.pack(anchor="w", pady=(0, 2))
 
             ent = tk.Entry(card, font=("Helvetica", 8), bg=THEME["bg"], fg=THEME["text_main"], bd=0, highlightthickness=1, highlightbackground=THEME["border"])
@@ -402,16 +426,23 @@ class BobShopApp(tk.Tk):
             row_idx = idx // 4
             col_idx = idx % 4
 
+            is_findmy = (name == "Golden Pineapple")
+
             card = tk.Frame(
                 grid_frame, bg=THEME["surface"],
-                highlightbackground=THEME["border"], highlightthickness=1,
+                highlightbackground=THEME["accent_findmy"] if is_findmy else THEME["border"],
+                highlightthickness=2 if is_findmy else 1,
                 padx=12, pady=10
             )
             card.grid(row=row_idx, column=col_idx, sticky="nsew", padx=6, pady=6)
             grid_frame.grid_columnconfigure(col_idx, weight=1)
             grid_frame.grid_rowconfigure(row_idx, weight=1)
 
-            lbl_icon = tk.Label(card, text=icon, font=("Segoe UI Emoji", 28), bg=THEME["surface"])
+            if is_findmy:
+                badge = tk.Label(card, text="📍 FIND MY LOCATION", font=("Helvetica", 7, "bold"), fg="#FFFFFF", bg=THEME["accent_findmy"], padx=4, pady=1)
+                badge.pack(anchor="e")
+
+            lbl_icon = tk.Label(card, text=icon, font=("Segoe UI Emoji", 26 if is_findmy else 28), bg=THEME["surface"])
             lbl_icon.pack(anchor="center", pady=(2, 4))
 
             lbl_title = tk.Label(card, text=name, font=("Helvetica", 10, "bold"), fg=THEME["text_main"], bg=THEME["surface"])
@@ -421,9 +452,12 @@ class BobShopApp(tk.Tk):
             lbl_price.pack(anchor="center", pady=(1, 8))
 
             btn_buy = RoundedButton(
-                card, text="Add to Cart 🛒", command=lambda n=name: self._on_product_clicked(n),
+                card, 
+                text="Share Location 📍" if is_findmy else "Add to Cart 🛒", 
+                command=lambda n=name: self._on_product_clicked(n),
                 width=120, height=32, radius=16,
-                bg_color=THEME["accent_primary"], hover_color=THEME["accent_primary_hover"],
+                bg_color=THEME["accent_findmy"] if is_findmy else THEME["accent_primary"],
+                hover_color="#0369A1" if is_findmy else THEME["accent_primary_hover"],
                 text_color="#FFFFFF"
             )
             btn_buy.pack(anchor="center", side="bottom")
@@ -445,15 +479,34 @@ class BobShopApp(tk.Tk):
 
         self._apply_status_ui()
 
-    # --- BUTTON CLICK HANDLER ---
+    # --- BUTTON CLICK HANDLER & LOCATION BROADCAST ---
     def _on_product_clicked(self, product_name):
-        assigned_number = self.config_data.get("fruit_contacts", {}).get(product_name, "+15550199")
         custom_note = self.config_data.get("custom_notes", "").strip()
-
         sid = self.config_data.get("twilio_account_sid", "").strip()
         token = self.config_data.get("twilio_auth_token", "").strip()
         from_phone = self.config_data.get("twilio_phone_number", "").strip()
 
+        # FIND MY FEATURE: Golden Pineapple broadcasts location to ALL contacts
+        if product_name == "Golden Pineapple":
+            loc_data = get_current_location()
+            contacts = list(self.config_data.get("fruit_contacts", {}).values())
+            unique_numbers = list(set(contacts))
+
+            broadcast_msg = f"📍 FIND MY LOCATION ALERT:\n\nCurrent Location:\n{loc_data}"
+            if custom_note:
+                broadcast_msg += f"\n\nNote:\n{custom_note}"
+
+            for num in unique_numbers:
+                send_real_sms(sid, token, from_phone, num, broadcast_msg)
+
+            messagebox.showinfo(
+                "Find My Active 📍",
+                f"Broadcasted live location to ALL {len(unique_numbers)} contacts!\n\nLocation Data:\n{loc_data}"
+            )
+            return
+
+        # STANDARD ITEM CLICK
+        assigned_number = self.config_data.get("fruit_contacts", {}).get(product_name, "+15550199")
         sms_message = f"Alert: An item ({product_name}) was selected in Bob Shop."
         if custom_note:
             sms_message += f"\n\nAdditional Note:\n{custom_note}"
