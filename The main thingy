@@ -20,11 +20,12 @@ except ImportError:
 CONFIG_FILE = "bob_config.json"
 
 PRODUCTS_LIST = [
-    ("Organic Bananas", "🍌"),
-    ("Fuji Apples", "🍎"),
-    ("Valencia Oranges", "🍊"),
-    ("Fresh Strawberries", "🍓"),
-    ("Avocado Bag", "🥑")
+    ("Organic Bananas", "$1.29 / lb", "🍌"),
+    ("Fuji Apples", "$2.49 / lb", "🍎"),
+    ("Valencia Oranges", "$1.99 / lb", "🍊"),
+    ("Fresh Strawberries", "$3.99 / box", "🍓"),
+    ("Avocado Bag", "$4.50 / ea", "🥑"),
+    ("Organic Lemons", "$2.99 / bag", "🍋")
 ]
 
 DEFAULT_CONFIG = {
@@ -36,7 +37,8 @@ DEFAULT_CONFIG = {
         "Fuji Apples": "Dad (+1 555-0188)",
         "Valencia Oranges": "Sister (+1 555-0177)",
         "Fresh Strawberries": "Best Friend (+1 555-0166)",
-        "Avocado Bag": "911 Emergency Dispatch"
+        "Avocado Bag": "911 Emergency Dispatch",
+        "Organic Lemons": "Campus Security (+1 555-0144)"
     }
 }
 
@@ -47,7 +49,6 @@ def load_config():
     try:
         with open(CONFIG_FILE, "r") as f:
             cfg = json.load(f)
-            # Ensure fruit contacts dict exists
             if "fruit_contacts" not in cfg:
                 cfg["fruit_contacts"] = DEFAULT_CONFIG["fruit_contacts"]
             return cfg
@@ -66,10 +67,12 @@ class BobShopApp(tk.Tk):
     def __init__(self):
         super().__init__()
 
+        # Expanded Desktop Window Size
         self.title("Bob Shop")
-        self.geometry("420x780")
+        self.geometry("900x780")
         self.configure(bg="#0F0F11")
-        self.resizable(False, False)
+        self.resizable(True, True)
+        self.minsize(800, 650)
 
         self.config_data = load_config()
         self.is_listening = True
@@ -103,52 +106,68 @@ class BobShopApp(tk.Tk):
         self._clear_window()
 
         # Canvas Header
-        header_canvas = tk.Canvas(self, bg="#18181B", height=90, highlightthickness=0)
+        header_canvas = tk.Canvas(self, bg="#18181B", height=100, highlightthickness=0)
         header_canvas.pack(fill="x")
-        self._draw_shopping_bag_logo(header_canvas, 210, 32)
-        header_canvas.create_text(210, 72, text="BOB SHOP SETUP", fill="#FFFFFF", font=("Helvetica", 12, "bold"))
+        self._draw_shopping_bag_logo(header_canvas, 450, 35)
+        header_canvas.create_text(450, 78, text="BOB SHOP SETUP & DISGUISE CONFIGURATION", fill="#FFFFFF", font=("Helvetica", 14, "bold"))
 
-        body = tk.Frame(self, bg="#0F0F11", padx=20, pady=10)
+        body = tk.Frame(self, bg="#0F0F11", padx=40, pady=20)
         body.pack(fill="both", expand=True)
 
-        # Trigger Phrase Field
-        tk.Label(body, text="Secret Voice Activation Phrase:", font=("Helvetica", 9, "bold"), fg="#FFFFFF", bg="#0F0F11").pack(anchor="w", pady=(5, 2))
+        # Voice Trigger Section
+        card_voice = tk.Frame(body, bg="#18181B", padx=20, pady=15, highlightbackground="#27272A", highlightthickness=1)
+        card_voice.pack(fill="x", pady=(0, 20))
+
+        tk.Label(card_voice, text="Secret Voice Activation Phrase", font=("Helvetica", 11, "bold"), fg="#FFFFFF", bg="#18181B").pack(anchor="w", pady=(0, 5))
+        tk.Label(
+            card_voice, 
+            text="Saying this phrase anywhere while the app is open silently triggers a broadcast alert to all assigned contacts.",
+            font=("Helvetica", 9), fg="#A1A1AA", bg="#18181B"
+        ).pack(anchor="w", pady=(0, 10))
+
         self.ent_phrase = tk.Entry(
-            body, font=("Helvetica", 10), bg="#18181B", fg="#FFFFFF",
+            card_voice, font=("Helvetica", 11), bg="#0F0F11", fg="#FFFFFF",
             insertbackground="#FFFFFF", bd=0, highlightthickness=1, highlightbackground="#27272A"
         )
         self.ent_phrase.insert(0, self.config_data.get("trigger_phrase", ""))
-        self.ent_phrase.pack(fill="x", ipady=6, pady=(0, 10))
+        self.ent_phrase.pack(fill="x", ipady=8)
 
-        # Fruit-to-Contact Assignment Section
-        tk.Label(body, text="Assign Emergency Contacts to Items:", font=("Helvetica", 9, "bold"), fg="#FFFFFF", bg="#0F0F11").pack(anchor="w", pady=(5, 5))
+        # Product-to-Contact Assignment Grid
+        tk.Label(body, text="Assign Emergency Contacts to Product Purchase Triggers", font=("Helvetica", 11, "bold"), fg="#FFFFFF", bg="#0F0F11").pack(anchor="w", pady=(5, 10))
+
+        grid_container = tk.Frame(body, bg="#0F0F11")
+        grid_container.pack(fill="both", expand=True)
 
         self.contact_entries = {}
         current_mappings = self.config_data.get("fruit_contacts", DEFAULT_CONFIG["fruit_contacts"])
 
-        for name, emoji in PRODUCTS_LIST:
-            row = tk.Frame(body, bg="#18181B", highlightbackground="#27272A", highlightthickness=1, padx=8, pady=4)
-            row.pack(fill="x", pady=3)
+        for idx, (name, price, emoji) in enumerate(PRODUCTS_LIST):
+            row_idx = idx // 2
+            col_idx = idx % 2
 
-            lbl = tk.Label(row, text=f"{emoji} {name}", font=("Helvetica", 9, "bold"), fg="#FFFFFF", bg="#18181B", width=18, anchor="w")
-            lbl.pack(side="left")
+            card = tk.Frame(grid_container, bg="#18181B", highlightbackground="#27272A", highlightthickness=1, padx=12, pady=10)
+            card.grid(row=row_idx, column=col_idx, sticky="ew", padx=8, pady=6)
+            grid_container.grid_columnconfigure(col_idx, weight=1)
+
+            lbl = tk.Label(card, text=f"{emoji} {name}", font=("Helvetica", 10, "bold"), fg="#FFFFFF", bg="#18181B")
+            lbl.pack(anchor="w", pady=(0, 4))
 
             ent = tk.Entry(
-                row, font=("Helvetica", 9), bg="#0F0F11", fg="#FFFFFF",
+                card, font=("Helvetica", 10), bg="#0F0F11", fg="#FFFFFF",
                 insertbackground="#FFFFFF", bd=0, highlightthickness=1, highlightbackground="#27272A"
             )
             ent.insert(0, current_mappings.get(name, "911 Emergency Dispatch"))
-            ent.pack(side="right", fill="x", expand=True, ipady=4)
+            ent.pack(fill="x", ipady=6)
 
             self.contact_entries[name] = ent
 
         # Complete Setup Button
         btn_complete = tk.Button(
-            self, text="SAVE & LAUNCH STORE DISGUISE", font=("Helvetica", 10, "bold"),
+            self, text="SAVE SETTINGS & LAUNCH STORE DISGUISE", font=("Helvetica", 11, "bold"),
             bg="#FFFFFF", fg="#000000", activebackground="#E4E4E7", activeforeground="#000000",
-            bd=0, pady=10, cursor="hand2", command=self._finish_tutorial
+            bd=0, pady=14, cursor="hand2", command=self._finish_tutorial
         )
-        btn_complete.pack(fill="x", padx=20, pady=15, side="bottom")
+        btn_complete.pack(fill="x", padx=40, pady=20, side="bottom")
 
     def _finish_tutorial(self):
         phrase = self.ent_phrase.get().strip().lower()
@@ -169,81 +188,75 @@ class BobShopApp(tk.Tk):
         self.show_store_interface()
 
     # ==========================================
-    # 2. DISGUISED STORE WITH TOUCH DISPATCH
+    # 2. DISGUISED STORE FRONTEND (DESKTOP)
     # ==========================================
     def show_store_interface(self):
         self._clear_window()
 
         # Navbar
-        top_bar = tk.Frame(self, bg="#18181B", height=50)
+        top_bar = tk.Frame(self, bg="#18181B", height=65)
         top_bar.pack(fill="x")
         top_bar.pack_propagate(False)
 
-        logo_canvas = tk.Canvas(top_bar, bg="#18181B", width=40, height=45, highlightthickness=0)
-        logo_canvas.pack(side="left", padx=(15, 5), pady=3)
-        self._draw_shopping_bag_logo(logo_canvas, 20, 22)
+        logo_canvas = tk.Canvas(top_bar, bg="#18181B", width=45, height=50, highlightthickness=0)
+        logo_canvas.pack(side="left", padx=(25, 10), pady=8)
+        self._draw_shopping_bag_logo(logo_canvas, 22, 25)
 
-        lbl_title = tk.Label(top_bar, text="BOB SHOP", font=("Helvetica", 12, "bold"), fg="#FFFFFF", bg="#18181B")
+        lbl_title = tk.Label(top_bar, text="BOB SHOP", font=("Helvetica", 14, "bold"), fg="#FFFFFF", bg="#18181B")
         lbl_title.pack(side="left")
 
         btn_settings = tk.Button(
-            top_bar, text="⚙️", font=("Helvetica", 11), bg="#18181B", fg="#A1A1AA",
-            activebackground="#18181B", bd=0, cursor="hand2", command=self.show_tutorial
+            top_bar, text="⚙️ Settings", font=("Helvetica", 10, "bold"), bg="#27272A", fg="#FFFFFF",
+            activebackground="#3F3F46", bd=0, padx=12, pady=6, cursor="hand2", command=self.show_tutorial
         )
-        btn_settings.pack(side="right", padx=15)
+        btn_settings.pack(side="right", padx=25)
 
-        # Store Feed
-        content = tk.Frame(self, bg="#0F0F11", padx=15, pady=12)
+        # Store Grid Layout
+        content = tk.Frame(self, bg="#0F0F11", padx=25, pady=20)
         content.pack(fill="both", expand=True)
 
-        tk.Label(content, text="Fresh Produce Catalog", font=("Helvetica", 11, "bold"), fg="#FFFFFF", bg="#0F0F11").pack(anchor="w", pady=(0, 8))
+        tk.Label(content, text="Fresh Produce Catalog", font=("Helvetica", 14, "bold"), fg="#FFFFFF", bg="#0F0F11").pack(anchor="w", pady=(0, 15))
 
-        products_data = [
-            ("Organic Bananas", "$1.29 / lb", "🍌"),
-            ("Fuji Apples", "$2.49 / lb", "🍎"),
-            ("Valencia Oranges", "$1.99 / lb", "🍊"),
-            ("Fresh Strawberries", "$3.99 / box", "🍓"),
-            ("Avocado Bag", "$4.50 / ea", "🥑")
-        ]
+        grid_frame = tk.Frame(content, bg="#0F0F11")
+        grid_frame.pack(fill="both", expand=True)
 
-        for name, price, icon in products_data:
-            card = tk.Frame(content, bg="#18181B", highlightbackground="#27272A", highlightthickness=1, padx=12, pady=8)
-            card.pack(fill="x", pady=4)
+        for idx, (name, price, icon) in enumerate(PRODUCTS_LIST):
+            row_idx = idx // 3
+            col_idx = idx % 3
 
-            lbl_icon = tk.Label(card, text=icon, font=("Segoe UI Emoji", 18), bg="#18181B")
-            lbl_icon.pack(side="left", padx=(0, 10))
+            card = tk.Frame(grid_frame, bg="#18181B", highlightbackground="#27272A", highlightthickness=1, padx=16, pady=16)
+            card.grid(row=row_idx, column=col_idx, sticky="nsew", padx=10, pady=10)
+            grid_frame.grid_columnconfigure(col_idx, weight=1)
+            grid_frame.grid_rowconfigure(row_idx, weight=1)
 
-            info = tk.Frame(card, bg="#18181B")
-            info.pack(side="left")
+            lbl_icon = tk.Label(card, text=icon, font=("Segoe UI Emoji", 32), bg="#18181B")
+            lbl_icon.pack(anchor="center", pady=(5, 10))
 
-            tk.Label(info, text=name, font=("Helvetica", 9, "bold"), fg="#FFFFFF", bg="#18181B").pack(anchor="w")
-            tk.Label(info, text=price, font=("Helvetica", 8), fg="#A1A1AA", bg="#18181B").pack(anchor="w")
+            tk.Label(card, text=name, font=("Helvetica", 11, "bold"), fg="#FFFFFF", bg="#18181B").pack(anchor="center")
+            tk.Label(card, text=price, font=("Helvetica", 9), fg="#A1A1AA", bg="#18181B").pack(anchor="center", pady=(2, 12))
 
             btn_buy = tk.Button(
-                card, text="Add", font=("Helvetica", 8, "bold"), bg="#27272A", fg="#FFFFFF",
-                activebackground="#3F3F46", bd=0, padx=10, pady=4, cursor="hand2",
+                card, text="Add to Cart", font=("Helvetica", 9, "bold"), bg="#27272A", fg="#FFFFFF",
+                activebackground="#3F3F46", bd=0, padx=15, pady=6, cursor="hand2",
                 command=lambda n=name: self._on_product_clicked(n)
             )
-            btn_buy.pack(side="right")
+            btn_buy.pack(anchor="center", side="bottom")
 
         # Footer Status
-        self.footer = tk.Frame(self, bg="#18181B", height=28)
+        self.footer = tk.Frame(self, bg="#18181B", height=32)
         self.footer.pack(fill="x", side="bottom")
 
         self.lbl_mic_status = tk.Label(
-            self.footer, text=self.mic_status_text, font=("Helvetica", 8),
+            self.footer, text=self.mic_status_text, font=("Helvetica", 9),
             fg=self.mic_status_color, bg="#18181B"
         )
-        self.lbl_mic_status.pack(pady=5)
+        self.lbl_mic_status.pack(pady=6)
 
     def _on_product_clicked(self, product_name):
-        """Simulates adding product to cart while triggering alert to assigned contact."""
         assigned_contact = self.config_data.get("fruit_contacts", {}).get(product_name, "911 Emergency Dispatch")
 
-        # Visual store cover
         messagebox.showinfo("Bob Shop", f"Added {product_name} to cart.")
 
-        # Silent dispatch log & alert
         print("\n" + "="*50)
         print(f"🚨 [TOUCH ALERT DISPATCHED - {product_name.upper()}] 🚨")
         print(f"Contact Dispatched: {assigned_contact}")
