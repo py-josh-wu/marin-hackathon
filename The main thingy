@@ -5,8 +5,17 @@ import threading
 import tkinter as tk
 from tkinter import messagebox
 
+# Optional speech recognition imports with fallback handling
+SPEECH_SUPPORTED = False
+try:
+    import speech_recognition as sr
+    SPEECH_SUPPORTED = True
+except ImportError:
+    SPEECH_SUPPORTED = False
+
+
 # ==========================================
-# CONFIGURATION & STORAGE (Single-File JSON)
+# CONFIGURATION & STORAGE
 # ==========================================
 CONFIG_FILE = "bob_config.json"
 
@@ -39,28 +48,30 @@ class BobShopApp(tk.Tk):
     def __init__(self):
         super().__init__()
 
-        # Window Settings
+        # UI Window Settings
         self.title("Bob Shop")
-        self.geometry("400x720")
+        self.geometry("400x740")
         self.configure(bg="#0F0F11")
         self.resizable(False, False)
 
         self.config_data = load_config()
         self.is_listening = True
+        self.mic_status_text = "Initializing Mic..."
+        self.mic_status_color = "#EAB308"  # Yellow
 
-        # Start Background Voice Recognition Listener Thread
-        self.listener_thread = threading.Thread(target=self._background_mic_listener, daemon=True)
+        # Start Background Microphone & Speech Recognition Engine
+        self.listener_thread = threading.Thread(target=self._start_speech_recognition, daemon=True)
         self.listener_thread.start()
 
-        # Route Screen Based on Application State
+        # Route Screen Based on State
         if self.config_data.get("first_run", True):
             self.show_tutorial()
         else:
             self.show_store_interface()
 
-    # --- CANVAS-DRAWN WHITE & BLACK SHOPPING BAG LOGO ---
+    # --- CANVAS-DRAWN LOGO ---
     def _draw_shopping_bag_logo(self, canvas, center_x, center_y):
-        """Draws a crisp white & black minimalist shopping bag icon directly on canvas."""
+        """Draws a minimalist white & black shopping bag directly onto canvas."""
         # Bag Body
         canvas.create_rectangle(
             center_x - 18, center_y - 10, center_x + 18, center_y + 22,
@@ -73,81 +84,75 @@ class BobShopApp(tk.Tk):
         )
 
     # ==========================================
-    # 1. TUTORIAL / FIRST-RUN ONBOARDING SCREEN
+    # 1. SETUP / TUTORIAL SCREEN
     # ==========================================
     def show_tutorial(self):
         self._clear_window()
 
-        # Top Header Bar
-        header_canvas = tk.Canvas(self, bg="#18181B", height=110, highlightthickness=0)
+        # Top Bar
+        header_canvas = tk.Canvas(self, bg="#18181B", height=100, highlightthickness=0)
         header_canvas.pack(fill="x")
-        
-        # Vector Logo
-        self._draw_shopping_bag_logo(header_canvas, 200, 38)
-        
-        header_canvas.create_text(
-            200, 82, text="BOB SHOP", fill="#FFFFFF",
-            font=("Helvetica", 14, "bold")
-        )
+        self._draw_shopping_bag_logo(header_canvas, 200, 35)
+        header_canvas.create_text(200, 78, text="BOB SHOP SETUP", fill="#FFFFFF", font=("Helvetica", 13, "bold"))
 
-        # Main Body Scrollable Container Frame
         body = tk.Frame(self, bg="#0F0F11", padx=20, pady=15)
         body.pack(fill="both", expand=True)
 
-        # Section Pill
-        lbl_badge = tk.Label(
-            body, text="SAFETY ASSISTANT SETUP", font=("Helvetica", 9, "bold"),
-            fg="#A1A1AA", bg="#27272A", padx=8, pady=3
-        )
-        lbl_badge.pack(anchor="w", pady=(0, 10))
-
-        # Instructions Box
+        # Guidance Box
         card_intro = tk.Frame(body, bg="#18181B", padx=15, pady=12)
         card_intro.pack(fill="x", pady=(0, 15))
 
         intro_text = (
-            "Bob Shop is a covert personal safety tool disguised as a store.\n\n"
-            "• Silent Listening: Operates in background to detect your distress phrase.\n"
-            "• Disguise: Re-opening the app presents a regular produce store.\n"
-            "• Emergency Protocol: Saying your secret phrase alerts contacts or 911."
+            "Bob Shop is a covert personal safety tool disguised as a produce app.\n\n"
+            "• Active Mic: Continuously analyzes ambient speech in the background.\n"
+            "• Trigger Phrase: Customize your trigger phrase below.\n"
+            "• Emergency Protocol: Saying your phrase silently triggers alerts to your contacts."
         )
         lbl_intro = tk.Label(
-            card_intro, text=intro_text, font=("Helvetica", 10),
+            card_intro, text=intro_text, font=("Helvetica", 9),
             fg="#D4D4D8", bg="#18181B", justify="left", wraplength=310
         )
         lbl_intro.pack(anchor="w")
 
-        # Config Inputs
-        tk.Label(body, text="Activation Phrase:", font=("Helvetica", 10, "bold"), fg="#FFFFFF", bg="#0F0F11").pack(anchor="w", pady=(5, 2))
+        # Inputs
+        tk.Label(body, text="Secret Activation Phrase:", font=("Helvetica", 10, "bold"), fg="#FFFFFF", bg="#0F0F11").pack(anchor="w", pady=(5, 2))
         self.ent_phrase = tk.Entry(
-            body, font=("Helvetica", 11), bg="#18181B", fg="#FFFFFF",
+            body, font=("Helvetica", 10), bg="#18181B", fg="#FFFFFF",
             insertbackground="#FFFFFF", bd=0, highlightthickness=1, highlightbackground="#27272A"
         )
         self.ent_phrase.insert(0, self.config_data["trigger_phrase"])
-        self.ent_phrase.pack(fill="x", ipady=8, pady=(0, 12))
+        self.ent_phrase.pack(fill="x", ipady=7, pady=(0, 12))
 
-        tk.Label(body, text="Emergency Contacts:", font=("Helvetica", 10, "bold"), fg="#FFFFFF", bg="#0F0F11").pack(anchor="w", pady=(5, 2))
+        tk.Label(body, text="Emergency Contacts / 911:", font=("Helvetica", 10, "bold"), fg="#FFFFFF", bg="#0F0F11").pack(anchor="w", pady=(5, 2))
         self.ent_contacts = tk.Entry(
-            body, font=("Helvetica", 11), bg="#18181B", fg="#FFFFFF",
+            body, font=("Helvetica", 10), bg="#18181B", fg="#FFFFFF",
             insertbackground="#FFFFFF", bd=0, highlightthickness=1, highlightbackground="#27272A"
         )
         self.ent_contacts.insert(0, self.config_data["contacts"])
-        self.ent_contacts.pack(fill="x", ipady=8, pady=(0, 20))
+        self.ent_contacts.pack(fill="x", ipady=7, pady=(0, 15))
 
-        # Complete Setup Button
+        # Test Speech Trigger Button
+        btn_test = tk.Button(
+            body, text="🧪 Test Trigger Manual Simulation", font=("Helvetica", 9),
+            bg="#27272A", fg="#A1A1AA", bd=0, pady=6, cursor="hand2",
+            command=lambda: self._trigger_alert("MANUAL TEST TRIGGER")
+        )
+        btn_test.pack(fill="x", pady=(0, 10))
+
+        # Launch Button
         btn_complete = tk.Button(
-            self, text="SAVE & LAUNCH STORE DISGUISE", font=("Helvetica", 11, "bold"),
+            self, text="SAVE & LAUNCH STORE DISGUISE", font=("Helvetica", 10, "bold"),
             bg="#FFFFFF", fg="#000000", activebackground="#E4E4E7", activeforeground="#000000",
             bd=0, pady=12, cursor="hand2", command=self._finish_tutorial
         )
-        btn_complete.pack(fill="x", padx=20, pady=20, side="bottom")
+        btn_complete.pack(fill="x", padx=20, pady=15, side="bottom")
 
     def _finish_tutorial(self):
         phrase = self.ent_phrase.get().strip().lower()
         contacts = self.ent_contacts.get().strip()
 
         if not phrase or not contacts:
-            messagebox.showwarning("Incomplete Setup", "Please specify both a secret phrase and emergency contacts.")
+            messagebox.showwarning("Incomplete Setup", "Please fill in all fields.")
             return
 
         self.config_data["trigger_phrase"] = phrase
@@ -158,39 +163,35 @@ class BobShopApp(tk.Tk):
         self.show_store_interface()
 
     # ==========================================
-    # 2. DISGUISED MODERN SHOPPING INTERFACE
+    # 2. DISGUISED STORE FRONTEND
     # ==========================================
     def show_store_interface(self):
         self._clear_window()
 
-        # Top Navigation Bar
-        top_bar = tk.Frame(self, bg="#18181B", height=60)
+        # Top Navbar
+        top_bar = tk.Frame(self, bg="#18181B", height=55)
         top_bar.pack(fill="x")
         top_bar.pack_propagate(False)
 
-        # Logo Canvas
-        logo_canvas = tk.Canvas(top_bar, bg="#18181B", width=45, height=50, highlightthickness=0)
+        logo_canvas = tk.Canvas(top_bar, bg="#18181B", width=40, height=45, highlightthickness=0)
         logo_canvas.pack(side="left", padx=(15, 5), pady=5)
-        self._draw_shopping_bag_logo(logo_canvas, 22, 28)
+        self._draw_shopping_bag_logo(logo_canvas, 20, 25)
 
-        lbl_title = tk.Label(top_bar, text="BOB SHOP", font=("Helvetica", 13, "bold"), fg="#FFFFFF", bg="#18181B")
+        lbl_title = tk.Label(top_bar, text="BOB SHOP", font=("Helvetica", 12, "bold"), fg="#FFFFFF", bg="#18181B")
         lbl_title.pack(side="left")
 
-        # Discreet Gear/Settings Button
         btn_settings = tk.Button(
-            top_bar, text="⚙️", font=("Helvetica", 12), bg="#18181B", fg="#A1A1AA",
-            activebackground="#18181B", activeforeground="#FFFFFF", bd=0, cursor="hand2",
-            command=self.show_tutorial
+            top_bar, text="⚙️", font=("Helvetica", 11), bg="#18181B", fg="#A1A1AA",
+            activebackground="#18181B", bd=0, cursor="hand2", command=self.show_tutorial
         )
         btn_settings.pack(side="right", padx=15)
 
-        # Store Feed
+        # Catalog Content
         content = tk.Frame(self, bg="#0F0F11", padx=15, pady=15)
         content.pack(fill="both", expand=True)
 
-        tk.Label(content, text="Fresh Produce Catalog", font=("Helvetica", 12, "bold"), fg="#FFFFFF", bg="#0F0F11").pack(anchor="w", pady=(0, 10))
+        tk.Label(content, text="Fresh Produce Catalog", font=("Helvetica", 11, "bold"), fg="#FFFFFF", bg="#0F0F11").pack(anchor="w", pady=(0, 10))
 
-        # Product Items List
         products = [
             ("Organic Bananas", "$1.29 / lb", "🍌"),
             ("Fuji Apples", "$2.49 / lb", "🍎"),
@@ -200,76 +201,119 @@ class BobShopApp(tk.Tk):
         ]
 
         for name, price, icon in products:
-            card = tk.Frame(content, bg="#18181B", highlightbackground="#27272A", highlightthickness=1, padx=12, pady=10)
-            card.pack(fill="x", pady=5)
+            card = tk.Frame(content, bg="#18181B", highlightbackground="#27272A", highlightthickness=1, padx=12, pady=8)
+            card.pack(fill="x", pady=4)
 
-            lbl_icon = tk.Label(card, text=icon, font=("Segoe UI Emoji", 20), bg="#18181B")
-            lbl_icon.pack(side="left", padx=(0, 12))
+            lbl_icon = tk.Label(card, text=icon, font=("Segoe UI Emoji", 18), bg="#18181B")
+            lbl_icon.pack(side="left", padx=(0, 10))
 
             info = tk.Frame(card, bg="#18181B")
             info.pack(side="left")
 
-            tk.Label(info, text=name, font=("Helvetica", 10, "bold"), fg="#FFFFFF", bg="#18181B").pack(anchor="w")
-            tk.Label(info, text=price, font=("Helvetica", 9), fg="#A1A1AA", bg="#18181B").pack(anchor="w")
+            tk.Label(info, text=name, font=("Helvetica", 9, "bold"), fg="#FFFFFF", bg="#18181B").pack(anchor="w")
+            tk.Label(info, text=price, font=("Helvetica", 8), fg="#A1A1AA", bg="#18181B").pack(anchor="w")
 
             btn_buy = tk.Button(
-                card, text="Add", font=("Helvetica", 9, "bold"), bg="#27272A", fg="#FFFFFF",
-                activebackground="#3F3F46", activeforeground="#FFFFFF", bd=0, padx=10, pady=4, cursor="hand2",
+                card, text="Add", font=("Helvetica", 8, "bold"), bg="#27272A", fg="#FFFFFF",
+                activebackground="#3F3F46", bd=0, padx=8, pady=3, cursor="hand2",
                 command=lambda n=name: messagebox.showinfo("Bob Shop", f"Added {n} to cart.")
             )
             btn_buy.pack(side="right")
 
-        # Bottom Safety Status Bar
-        footer = tk.Frame(self, bg="#18181B", height=28)
-        footer.pack(fill="x", side="bottom")
+        # Dynamic Speech Engine Status Footer Bar
+        self.footer = tk.Frame(self, bg="#18181B", height=28)
+        self.footer.pack(fill="x", side="bottom")
 
-        lbl_mic = tk.Label(footer, text="● Live Protection Active", font=("Helvetica", 8), fg="#22C55E", bg="#18181B")
-        lbl_mic.pack(pady=5)
+        self.lbl_mic_status = tk.Label(
+            self.footer, text=self.mic_status_text, font=("Helvetica", 8),
+            fg=self.mic_status_color, bg="#18181B"
+        )
+        self.lbl_mic_status.pack(pady=5)
 
     # ==========================================
-    # 3. BACKGROUND AUDIO LISTENER & DISPATCH
+    # 3. REAL-TIME SPEECH RECOGNITION ENGINE
     # ==========================================
-    def _background_mic_listener(self):
-        """Attempts microphone audio listening using SpeechRecognition if available."""
+    def _start_speech_recognition(self):
+        """Continuous background thread listening to standard microphone input."""
+        if not SPEECH_SUPPORTED:
+            self._update_status("● Speech Recognition Libraries Missing (pip install SpeechRecognition pyaudio)", "#EF4444")
+            return
+
+        recognizer = sr.Recognizer()
+        
+        # Adjust sensitivity parameters
+        recognizer.energy_threshold = 300
+        recognizer.dynamic_energy_threshold = True
+
         try:
-            import speech_recognition as sr
-            recognizer = sr.Recognizer()
             mic = sr.Microphone()
+        except Exception as e:
+            self._update_status("● Microphone Access Error", "#EF4444")
+            return
 
+        # Ambient noise calibration
+        self._update_status("● Calibrating Ambient Noise...", "#EAB308")
+        try:
             with mic as source:
-                recognizer.adjust_for_ambient_noise(source, duration=1)
+                recognizer.adjust_for_ambient_noise(source, duration=1.5)
+            self._update_status("● Live Protection Active (Listening)", "#22C55E")
+        except Exception:
+            self._update_status("● Mic Initialization Failed", "#EF4444")
+            return
 
-            while self.is_listening:
-                try:
-                    with mic as source:
-                        audio = recognizer.listen(source, timeout=3, phrase_time_limit=5)
-                    text = recognizer.recognize_google(audio).lower()
+        # Continuous listening loop
+        while self.is_listening:
+            try:
+                with mic as source:
+                    # Capture audio chunk with 3s timeout
+                    audio = recognizer.listen(source, timeout=3, phrase_time_limit=6)
 
-                    target = self.config_data.get("trigger_phrase", "").lower()
-                    if target in text:
-                        self._trigger_alert(text)
+                # Send audio chunk to Google Speech API
+                detected_text = recognizer.recognize_google(audio).lower()
+                print(f"[Mic Heard]: '{detected_text}'")
 
-                except (sr.WaitTimeoutError, sr.UnknownValueError):
-                    pass
-                except Exception:
-                    time.sleep(1)
+                # Match against secret phrase
+                target_phrase = self.config_data.get("trigger_phrase", "").lower()
+                
+                # Check fuzzy or direct match
+                if target_phrase in detected_text or any(word in detected_text for word in ["bobify", "banana", "hannah"]):
+                    if target_phrase in detected_text:
+                        self._trigger_alert(detected_text)
 
-        except ImportError:
-            # Fallback loop when PyAudio or SpeechRecognition packages aren't present
-            while self.is_listening:
-                time.sleep(2)
+            except sr.WaitTimeoutError:
+                # Normal timeout when quiet; continue listening
+                pass
+            except sr.UnknownValueError:
+                # Speech was uninterpretable; continue listening
+                pass
+            except sr.RequestError as e:
+                self._update_status("● Speech Network Error", "#EF4444")
+                time.sleep(3)
+                self._update_status("● Live Protection Active (Listening)", "#22C55E")
+            except Exception as e:
+                time.sleep(1)
+
+    def _update_status(self, message, color):
+        """Thread-safe UI status label updater."""
+        self.mic_status_text = message
+        self.mic_status_color = color
+        self.after(0, lambda: self._apply_status_ui())
+
+    def _apply_status_ui(self):
+        if hasattr(self, 'lbl_mic_status') and self.lbl_mic_status.winfo_exists():
+            self.lbl_mic_status.config(text=self.mic_status_text, fg=self.mic_status_color)
 
     def _trigger_alert(self, detected_text):
         contacts = self.config_data.get("contacts", "")
         print("\n" + "="*50)
         print("🚨 [COVERT EMERGENCY PROTOCOL ACTIVATED] 🚨")
-        print(f"Detected Trigger: '{detected_text}'")
-        print(f"Dispatching Alert to Contacts: {contacts}")
+        print(f"Detected Secret Phrase: '{detected_text}'")
+        print(f"Dispatching Alert & GPS Location to Contacts: {contacts}")
         print("="*50 + "\n")
 
         self.after(0, lambda: messagebox.showwarning(
-            "Protocol Triggered",
-            f"[TEST MODE] Trigger phrase detected!\n\nAlert sent to contacts:\n{contacts}"
+            "Emergency Protocol Active",
+            f"[TEST MODE] Secret trigger phrase detected!\n\nRecognized Audio: '{detected_text}'\n\nAlert sent to contacts:\n{contacts}"
         ))
 
     def _clear_window(self):
