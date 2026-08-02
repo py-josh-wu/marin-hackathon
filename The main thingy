@@ -96,6 +96,7 @@ THEME = {
     "accent_success": "#059669",
     "accent_success_hover": "#047857",
     "accent_findmy": "#0284C7",
+    "accent_findmy_hover": "#0369A1",
     "text_main": "#0F172A",
     "text_muted": "#64748B",
     "status_active": "#059669",
@@ -114,7 +115,7 @@ PRODUCTS_LIST = [
     ("Honeycrisp Apples", "$2.99 / lb", "🍎"),
     ("Ripe Mangoes", "$1.88 / ea", "🥭"),
     ("Seedless Grapes", "$3.49 / lb", "🍇"),
-    ("Golden Pineapple", "$3.99 / ea", "🍍"),  # <--- FIND MY LOCATION TRIGGER
+    ("Golden Pineapple", "$3.99 / ea", "🍍"),
     ("Sweet Watermelon", "$5.99 / ea", "🍉")
 ]
 
@@ -324,8 +325,27 @@ class BobShopApp(tk.Tk):
         self.txt_notes.insert("1.0", self.config_data.get("custom_notes", ""))
         self.txt_notes.pack(fill="x", pady=(4, 0))
 
-        # 3. SMS Contact Numbers Grid
-        tk.Label(container, text="📱 Target SMS Numbers for Each Item (🍍 Golden Pineapple = Broadcast Location to ALL)", font=("Helvetica", 10, "bold"), fg=THEME["text_main"], bg=THEME["bg"]).pack(anchor="w", pady=(2, 4))
+        # 3. DISCREET FIND MY LOCATION TOOL IN SETTINGS
+        findmy_card = tk.Frame(container, bg=THEME["surface"], padx=14, pady=8, highlightbackground=THEME["border"], highlightthickness=1)
+        findmy_card.pack(fill="x", pady=(0, 8))
+
+        findmy_header = tk.Frame(findmy_card, bg=THEME["surface"])
+        findmy_header.pack(fill="x")
+
+        tk.Label(findmy_header, text="📍 Find My Device Location", font=("Helvetica", 10, "bold"), fg=THEME["text_main"], bg=THEME["surface"]).pack(side="left")
+
+        btn_trigger_findmy = RoundedButton(
+            findmy_header, text="Broadcast Location Now 📡", command=self._dispatch_location_broadcast,
+            width=180, height=30, radius=15,
+            bg_color=THEME["accent_findmy"], hover_color=THEME["accent_findmy_hover"],
+            text_color="#FFFFFF", font=("Helvetica", 8, "bold")
+        )
+        btn_trigger_findmy.pack(side="right")
+
+        tk.Label(findmy_card, text="Discreetly fetches current coordinates and sends Google Maps link to all configured SMS contacts.", font=("Helvetica", 8), fg=THEME["text_muted"], bg=THEME["surface"]).pack(anchor="w", pady=(2, 0))
+
+        # 4. SMS Contact Numbers Grid
+        tk.Label(container, text="📱 Target SMS Numbers for Each Item", font=("Helvetica", 10, "bold"), fg=THEME["text_main"], bg=THEME["bg"]).pack(anchor="w", pady=(2, 4))
 
         grid_container = tk.Frame(container, bg=THEME["bg"])
         grid_container.pack(fill="both", expand=True)
@@ -341,8 +361,7 @@ class BobShopApp(tk.Tk):
             card.grid(row=row_idx, column=col_idx, sticky="ew", padx=4, pady=3)
             grid_container.grid_columnconfigure(col_idx, weight=1)
 
-            lbl_text = f"{emoji} {name}" + (" 📍[Find My]" if name == "Golden Pineapple" else "")
-            lbl = tk.Label(card, text=lbl_text, font=("Helvetica", 8, "bold"), fg=THEME["accent_findmy"] if name == "Golden Pineapple" else THEME["text_main"], bg=THEME["surface"])
+            lbl = tk.Label(card, text=f"{emoji} {name}", font=("Helvetica", 8, "bold"), fg=THEME["text_main"], bg=THEME["surface"])
             lbl.pack(anchor="w", pady=(0, 2))
 
             ent = tk.Entry(card, font=("Helvetica", 8), bg=THEME["bg"], fg=THEME["text_main"], bd=0, highlightthickness=1, highlightbackground=THEME["border"])
@@ -361,6 +380,39 @@ class BobShopApp(tk.Tk):
             text_color="#FFFFFF", font=("Helvetica", 10, "bold")
         )
         btn_save.pack(anchor="center")
+
+    def _dispatch_location_broadcast(self):
+        """Discreetly broadcasts current location to all configured contacts from Settings."""
+        sid = self.ent_tw_sid.get().strip() or self.config_data.get("twilio_account_sid", "").strip()
+        token = self.ent_tw_token.get().strip() or self.config_data.get("twilio_auth_token", "").strip()
+        from_phone = self.ent_tw_phone.get().strip() or self.config_data.get("twilio_phone_number", "").strip()
+        custom_note = self.txt_notes.get("1.0", tk.END).strip()
+
+        loc_data = get_current_location()
+
+        # Collect contact numbers
+        contacts = []
+        for name, ent in self.contact_entries.items():
+            val = ent.get().strip()
+            if val:
+                contacts.append(val)
+        
+        if not contacts:
+            contacts = list(self.config_data.get("fruit_contacts", {}).values())
+
+        unique_numbers = list(set(contacts))
+
+        broadcast_msg = f"📍 LOCATION BROADCAST:\n\nCurrent Location:\n{loc_data}"
+        if custom_note:
+            broadcast_msg += f"\n\nNote:\n{custom_note}"
+
+        for num in unique_numbers:
+            send_real_sms(sid, token, from_phone, num, broadcast_msg)
+
+        messagebox.showinfo(
+            "Find My Active 📍",
+            f"Discreetly broadcasted live location to ALL {len(unique_numbers)} contacts!\n\nLocation Data:\n{loc_data}"
+        )
 
     def _finish_tutorial(self):
         phrase = self.ent_phrase.get().strip().lower()
@@ -426,23 +478,16 @@ class BobShopApp(tk.Tk):
             row_idx = idx // 4
             col_idx = idx % 4
 
-            is_findmy = (name == "Golden Pineapple")
-
             card = tk.Frame(
                 grid_frame, bg=THEME["surface"],
-                highlightbackground=THEME["accent_findmy"] if is_findmy else THEME["border"],
-                highlightthickness=2 if is_findmy else 1,
+                highlightbackground=THEME["border"], highlightthickness=1,
                 padx=12, pady=10
             )
             card.grid(row=row_idx, column=col_idx, sticky="nsew", padx=6, pady=6)
             grid_frame.grid_columnconfigure(col_idx, weight=1)
             grid_frame.grid_rowconfigure(row_idx, weight=1)
 
-            if is_findmy:
-                badge = tk.Label(card, text="📍 FIND MY LOCATION", font=("Helvetica", 7, "bold"), fg="#FFFFFF", bg=THEME["accent_findmy"], padx=4, pady=1)
-                badge.pack(anchor="e")
-
-            lbl_icon = tk.Label(card, text=icon, font=("Segoe UI Emoji", 26 if is_findmy else 28), bg=THEME["surface"])
+            lbl_icon = tk.Label(card, text=icon, font=("Segoe UI Emoji", 28), bg=THEME["surface"])
             lbl_icon.pack(anchor="center", pady=(2, 4))
 
             lbl_title = tk.Label(card, text=name, font=("Helvetica", 10, "bold"), fg=THEME["text_main"], bg=THEME["surface"])
@@ -453,11 +498,11 @@ class BobShopApp(tk.Tk):
 
             btn_buy = RoundedButton(
                 card, 
-                text="Share Location 📍" if is_findmy else "Add to Cart 🛒", 
+                text="Add to Cart 🛒", 
                 command=lambda n=name: self._on_product_clicked(n),
                 width=120, height=32, radius=16,
-                bg_color=THEME["accent_findmy"] if is_findmy else THEME["accent_primary"],
-                hover_color="#0369A1" if is_findmy else THEME["accent_primary_hover"],
+                bg_color=THEME["accent_primary"],
+                hover_color=THEME["accent_primary_hover"],
                 text_color="#FFFFFF"
             )
             btn_buy.pack(anchor="center", side="bottom")
@@ -479,33 +524,13 @@ class BobShopApp(tk.Tk):
 
         self._apply_status_ui()
 
-    # --- BUTTON CLICK HANDLER & LOCATION BROADCAST ---
+    # --- BUTTON CLICK HANDLER ---
     def _on_product_clicked(self, product_name):
         custom_note = self.config_data.get("custom_notes", "").strip()
         sid = self.config_data.get("twilio_account_sid", "").strip()
         token = self.config_data.get("twilio_auth_token", "").strip()
         from_phone = self.config_data.get("twilio_phone_number", "").strip()
 
-        # FIND MY FEATURE: Golden Pineapple broadcasts location to ALL contacts
-        if product_name == "Golden Pineapple":
-            loc_data = get_current_location()
-            contacts = list(self.config_data.get("fruit_contacts", {}).values())
-            unique_numbers = list(set(contacts))
-
-            broadcast_msg = f"📍 FIND MY LOCATION ALERT:\n\nCurrent Location:\n{loc_data}"
-            if custom_note:
-                broadcast_msg += f"\n\nNote:\n{custom_note}"
-
-            for num in unique_numbers:
-                send_real_sms(sid, token, from_phone, num, broadcast_msg)
-
-            messagebox.showinfo(
-                "Find My Active 📍",
-                f"Broadcasted live location to ALL {len(unique_numbers)} contacts!\n\nLocation Data:\n{loc_data}"
-            )
-            return
-
-        # STANDARD ITEM CLICK
         assigned_number = self.config_data.get("fruit_contacts", {}).get(product_name, "+15550199")
         sms_message = f"Alert: An item ({product_name}) was selected in Bob Shop."
         if custom_note:
