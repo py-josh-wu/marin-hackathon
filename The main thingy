@@ -1,18 +1,21 @@
 import os
 import json
 import time
-import re
 import threading
 import tkinter as tk
 from tkinter import messagebox
 
-# Optional speech recognition imports
+# ==========================================
+# SPEECH RECOGNITION LIBRARY INTEGRATION
+# ==========================================
 SPEECH_SUPPORTED = False
 try:
     import speech_recognition as sr
     SPEECH_SUPPORTED = True
+    print("✅ SpeechRecognition library successfully loaded.")
 except ImportError:
     SPEECH_SUPPORTED = False
+    print("⚠️ SpeechRecognition or PyAudio library not found. Run: pip install SpeechRecognition pyaudio")
 
 
 # ==========================================
@@ -164,6 +167,14 @@ class BobShopApp(tk.Tk):
 
         self.is_ai_active = False
         self.current_screen = "store"
+
+        # Initialize speech recognizer instance
+        if SPEECH_SUPPORTED:
+            self.recognizer = sr.Recognizer()
+            self.recognizer.energy_threshold = 300
+            self.recognizer.dynamic_energy_threshold = True
+        else:
+            self.recognizer = None
 
         # Background Security Speech Listener Thread
         self.listener_thread = threading.Thread(target=self._start_speech_recognition, daemon=True)
@@ -330,8 +341,10 @@ class BobShopApp(tk.Tk):
         ai_left.pack(side="left", fill="x", expand=True)
 
         tk.Label(ai_left, text="🤖 AI Voice Task Assistant", font=("Helvetica", 11, "bold"), fg=THEME["text_main"], bg=THEME["surface"]).pack(anchor="w")
+        
+        status_subtext = "Say something like: 'Add organic bananas to my cart' or 'Open settings'" if SPEECH_SUPPORTED else "⚠️ Run 'pip install SpeechRecognition pyaudio' to enable voice commands"
         self.lbl_ai_transcript = tk.Label(
-            ai_left, text="Say something like: 'Add organic bananas to my cart' or 'Open settings'",
+            ai_left, text=status_subtext,
             font=("Helvetica", 9), fg=THEME["text_muted"], bg=THEME["surface"]
         )
         self.lbl_ai_transcript.pack(anchor="w", pady=(2, 0))
@@ -440,28 +453,27 @@ class BobShopApp(tk.Tk):
         threading.Thread(target=self._listen_and_execute_task, daemon=True).start()
 
     def _listen_and_execute_task(self):
-        if not SPEECH_SUPPORTED:
-            self._update_ai_status("Speech Recognition library missing.")
+        if not SPEECH_SUPPORTED or not self.recognizer:
+            self._update_ai_status("SpeechRecognition library is missing. Install via pip install SpeechRecognition pyaudio")
             return
 
         self.is_ai_active = True
-        self._update_ai_status("👂 Listening for command...")
+        self._update_ai_status("👂 Listening for your command...")
         
-        recognizer = sr.Recognizer()
         try:
             with sr.Microphone() as source:
-                recognizer.adjust_for_ambient_noise(source, duration=0.8)
-                audio = recognizer.listen(source, timeout=5, phrase_time_limit=5)
+                self.recognizer.adjust_for_ambient_noise(source, duration=0.8)
+                audio = self.recognizer.listen(source, timeout=5, phrase_time_limit=5)
             
-            command = recognizer.recognize_google(audio).lower()
+            command = self.recognizer.recognize_google(audio).lower()
             self._update_ai_status(f"Heard: \"{command}\"")
             self.after(500, lambda: self._process_ai_command(command))
         except sr.WaitTimeoutError:
-            self._update_ai_status("Timed out. Click button to try again.")
+            self._update_ai_status("Timed out waiting for speech. Click button to try again.")
         except sr.UnknownValueError:
-            self._update_ai_status("Sorry, I didn't catch that.")
+            self._update_ai_status("Could not understand audio.")
         except Exception as e:
-            self._update_ai_status(f"Error listening: {str(e)}")
+            self._update_ai_status(f"Error accessing microphone: {str(e)}")
         finally:
             self.is_ai_active = False
 
@@ -487,7 +499,6 @@ class BobShopApp(tk.Tk):
 
         # Task 3: Match Produce Item & Add to Cart
         for name, price, icon in PRODUCTS_LIST:
-            # Check simple product match (e.g., 'banana', 'organic bananas', 'fuji', etc.)
             clean_name = name.lower().replace("organic ", "").replace("fresh ", "").replace("sweet ", "").replace("ripe ", "")
             single_words = clean_name.split()
 
@@ -503,13 +514,9 @@ class BobShopApp(tk.Tk):
     # 4. BACKGROUND SECURITY RECOGNITION
     # ==========================================
     def _start_speech_recognition(self):
-        if not SPEECH_SUPPORTED:
+        if not SPEECH_SUPPORTED or not self.recognizer:
             self._update_status("● Speech Libraries Missing (pip install SpeechRecognition pyaudio)", THEME["status_error"])
             return
-
-        recognizer = sr.Recognizer()
-        recognizer.energy_threshold = 300
-        recognizer.dynamic_energy_threshold = True
 
         try:
             mic = sr.Microphone()
@@ -520,7 +527,7 @@ class BobShopApp(tk.Tk):
         self._update_status("Calibrating Ambient Noise...", THEME["status_warn"])
         try:
             with mic as source:
-                recognizer.adjust_for_ambient_noise(source, duration=1.5)
+                self.recognizer.adjust_for_ambient_noise(source, duration=1.5)
             self._update_status("Live Protection Active", THEME["status_active"])
         except Exception:
             self._update_status("Mic Initialization Failed", THEME["status_error"])
@@ -533,9 +540,9 @@ class BobShopApp(tk.Tk):
 
             try:
                 with mic as source:
-                    audio = recognizer.listen(source, timeout=3, phrase_time_limit=6)
+                    audio = self.recognizer.listen(source, timeout=3, phrase_time_limit=6)
 
-                detected_text = recognizer.recognize_google(audio).lower()
+                detected_text = self.recognizer.recognize_google(audio).lower()
                 print(f"[Mic Heard]: '{detected_text}'")
 
                 target_phrase = self.config_data.get("trigger_phrase", "").lower()
