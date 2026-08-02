@@ -2,16 +2,20 @@ import os
 import json
 import time
 import threading
-import tkinter as tk
-from tkinter import ttk, messagebox
+from PIL import Image, ImageDraw
+import customtkinter as ctk
+from tkinter import messagebox
 
-# --- CONFIGURATION & STORAGE ---
+# Set CustomTkinter theme / color palette
+ctk.set_appearance_mode("Dark")  # Options: "System", "Dark", "Light"
+ctk.set_default_color_theme("blue")  # Themes: "blue", "green", "dark-blue"
+
 CONFIG_FILE = "bob_config.json"
 
 DEFAULT_CONFIG = {
     "first_run": True,
     "trigger_phrase": "hey bobify, can i buy a banana from hannah?",
-    "contacts": ["Mom (+1 555-0199)", "911 Emergency Dispatch"],
+    "contacts": "Mom (+1 555-0199), 911 Emergency Dispatch",
     "covert_mode": True
 }
 
@@ -30,211 +34,248 @@ def save_config(config):
         json.dump(config, f, indent=4)
 
 
-# --- MAIN APPLICATION CLASS ---
-class BobShopApp(tk.Tk):
+class BobShopApp(ctk.CTk):
     def __init__(self):
         super().__init__()
 
+        # Window Setup
         self.title("Bob Shop")
-        self.geometry("420x680")
-        self.configure(bg="#FFFFFF")
+        self.geometry("400x720")
         self.resizable(False, False)
+        
+        # Modern App Background
+        self.configure(fg_color="#0F0F11")
 
         self.config_data = load_config()
         self.is_listening = True
 
-        # Start Background Voice Recognition Thread
+        # Generate Minimalist Shopping Bag Logo Icon dynamically
+        self.bag_logo = self._create_bag_icon()
+
+        # Start Speech Listener Thread
         self.listener_thread = threading.Thread(target=self._background_mic_listener, daemon=True)
         self.listener_thread.start()
 
-        # UI Routing based on state
+        # Router
         if self.config_data.get("first_run", True):
             self.show_tutorial()
         else:
             self.show_store_interface()
 
-    # ==========================================
-    # 1. TUTORIAL / SETUP WIZARD (FIRST LAUNCH)
-    # ==========================================
+    # --- DYNAMIC MINIMALIST BLACK & WHITE SHOPPING BAG LOGO ---
+    def _create_bag_icon(self):
+        img = Image.new("RGBA", (80, 80), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(img)
+        # Handle
+        draw.arc([26, 12, 54, 38], start=180, end=0, fill="#FFFFFF", width=3)
+        # Bag Body
+        draw.rounded_rectangle([18, 28, 62, 70], radius=4, outline="#FFFFFF", width=3)
+        return ctk.CTkImage(light_image=img, dark_image=img, size=(38, 38))
+
+    # =========================================================
+    # 1. MODERN TUTORIAL & ONBOARDING SETUP
+    # =========================================================
     def show_tutorial(self):
         self._clear_window()
 
-        # Header / Branding
-        header = tk.Frame(self, bg="#000000", height=80)
+        # Header Frame
+        header = ctk.CTkFrame(self, fg_color="#18181B", corner_radius=0, height=90)
         header.pack(fill="x")
-        
-        lbl_title = tk.Label(
-            header, 
-            text="🛍️ BOB SHOP SETUP", 
-            font=("Helvetica", 16, "bold"), 
-            fg="#FFFFFF", 
-            bg="#000000"
+
+        title_lbl = ctk.CTkLabel(
+            header,
+            text="BOB SHOP",
+            image=self.bag_logo,
+            compound="top",
+            font=ctk.CTkFont(family="Inter", size=16, weight="bold"),
+            text_color="#FFFFFF"
         )
-        lbl_title.pack(pady=25)
+        title_lbl.pack(pady=12)
 
         # Content Container
-        content = tk.Frame(self, bg="#FFFFFF", padx=20, pady=20)
-        content.pack(fill="both", expand=True)
+        scroll_container = ctk.CTkScrollableFrame(self, fg_color="transparent")
+        scroll_container.pack(fill="both", expand=True, padx=20, pady=15)
 
-        intro_text = (
-            "WELCOME TO BOB SHOP\n\n"
-            "This app acts as a covert personal safety tool disguised as a store.\n\n"
-            "• Background Mic: Listens silently for your safe phrase.\n"
-            "• Disguise: Once set up, re-opening the app presents a regular fruit shop.\n"
-            "• Emergency Activation: Saying the phrase alerts selected contacts."
+        # Setup Badge
+        badge = ctk.CTkLabel(
+            scroll_container,
+            text="SAFETY ASSISTANT SETUP",
+            font=ctk.CTkFont(size=10, weight="bold"),
+            text_color="#A1A1AA",
+            fg_color="#27272A",
+            corner_radius=6,
+            padx=10,
+            pady=4
         )
+        badge.pack(anchor="w", pady=(0, 10))
 
-        lbl_intro = tk.Label(
-            content, 
-            text=intro_text, 
-            font=("Helvetica", 10), 
-            bg="#FFFFFF", 
-            justify="left", 
-            wraplength=360
+        # Intro Card
+        intro_card = ctk.CTkFrame(scroll_container, fg_color="#18181B", corner_radius=12)
+        intro_card.pack(fill="x", pady=(0, 15))
+
+        intro_msg = (
+            "Bob Shop is a covert emergency protocol application disguised as a modern store interface.\n\n"
+            "• Mic Continuous Scan: Silently listens for your activation phrase.\n"
+            "• Automatic Disguise: Re-opening the app presents a regular store catalog."
         )
-        lbl_intro.pack(anchor="w", pady=(0, 15))
+        intro_lbl = ctk.CTkLabel(
+            intro_card,
+            text=intro_msg,
+            font=ctk.CTkFont(size=12),
+            text_color="#D4D4D8",
+            justify="left",
+            wraplength=310
+        )
+        intro_lbl.pack(padx=15, pady=15)
 
-        # Secret Phrase Section
-        tk.Label(content, text="Activation Phrase:", font=("Helvetica", 10, "bold"), bg="#FFFFFF").pack(anchor="w")
-        self.ent_phrase = tk.Entry(content, font=("Helvetica", 10), width=45)
+        # Config Inputs
+        ctk.CTkLabel(scroll_container, text="Activation Trigger Phrase", font=ctk.CTkFont(size=12, weight="bold")).pack(anchor="w", pady=(5, 2))
+        self.ent_phrase = ctk.CTkEntry(
+            scroll_container,
+            height=40,
+            corner_radius=8,
+            fg_color="#18181B",
+            border_color="#27272A",
+            font=ctk.CTkFont(size=12)
+        )
         self.ent_phrase.insert(0, self.config_data["trigger_phrase"])
-        self.ent_phrase.pack(fill="x", pady=(2, 15))
+        self.ent_phrase.pack(fill="x", pady=(0, 12))
 
-        # Contacts Section
-        tk.Label(content, text="Emergency Contacts (comma separated):", font=("Helvetica", 10, "bold"), bg="#FFFFFF").pack(anchor="w")
-        self.ent_contacts = tk.Entry(content, font=("Helvetica", 10), width=45)
-        self.ent_contacts.insert(0, ", ".join(self.config_data["contacts"]))
-        self.ent_contacts.pack(fill="x", pady=(2, 20))
+        ctk.CTkLabel(scroll_container, text="Emergency Contacts", font=ctk.CTkFont(size=12, weight="bold")).pack(anchor="w", pady=(5, 2))
+        self.ent_contacts = ctk.CTkEntry(
+            scroll_container,
+            height=40,
+            corner_radius=8,
+            fg_color="#18181B",
+            border_color="#27272A",
+            font=ctk.CTkFont(size=12)
+        )
+        self.ent_contacts.insert(0, self.config_data["contacts"])
+        self.ent_contacts.pack(fill="x", pady=(0, 20))
 
-        # Save & Launch Store Button
-        btn_finish = tk.Button(
-            content,
-            text="COMPLETE SETUP & LAUNCH STORE",
-            font=("Helvetica", 11, "bold"),
-            bg="#000000",
-            fg="#FFFFFF",
-            activebackground="#333333",
-            activeforeground="#FFFFFF",
-            bd=0,
-            pady=12,
+        # Save Button
+        btn_complete = ctk.CTkButton(
+            self,
+            text="Save Setup & Launch Disguise",
+            height=45,
+            corner_radius=10,
+            fg_color="#FFFFFF",
+            text_color="#000000",
+            hover_color="#E4E4E7",
+            font=ctk.CTkFont(size=13, weight="bold"),
             command=self._finish_tutorial
         )
-        btn_finish.pack(fill="x", side="bottom")
+        btn_complete.pack(fill="x", padx=20, pady=20)
 
     def _finish_tutorial(self):
         phrase = self.ent_phrase.get().strip().lower()
-        contacts_raw = self.ent_contacts.get().strip()
+        contacts = self.ent_contacts.get().strip()
 
-        if not phrase or not contacts_raw:
-            messagebox.showwarning("Incomplete Setup", "Please specify both a secret phrase and emergency contacts.")
+        if not phrase or not contacts:
+            messagebox.showwarning("Incomplete", "Please fill in all setup fields.")
             return
 
         self.config_data["trigger_phrase"] = phrase
-        self.config_data["contacts"] = [c.strip() for c in contacts_raw.split(",")]
+        self.config_data["contacts"] = contacts
         self.config_data["first_run"] = False
         save_config(self.config_data)
 
-        messagebox.showinfo("Setup Complete", "Bob Shop is now active in disguise mode.")
         self.show_store_interface()
 
-    # ==========================================
-    # 2. DISGUISED SHOPPING INTERFACE
-    # ==========================================
+    # =========================================================
+    # 2. DISGUISED MODERN SHOPPING STORE
+    # =========================================================
     def show_store_interface(self):
         self._clear_window()
 
-        # Minimalist Top Bar (Black & White Theme)
-        top_bar = tk.Frame(self, bg="#000000", height=60)
+        # Sleek Top Bar
+        top_bar = ctk.CTkFrame(self, fg_color="#18181B", corner_radius=0, height=65)
         top_bar.pack(fill="x")
 
-        # Fake Logo Icon + Name
-        lbl_logo = tk.Label(
-            top_bar, 
-            text="🛍️ BOB SHOP", 
-            font=("Helvetica", 14, "bold"), 
-            fg="#FFFFFF", 
-            bg="#000000"
-        )
-        lbl_logo.pack(side="left", padx=20, pady=15)
+        brand_frame = ctk.CTkFrame(top_bar, fg_color="transparent")
+        brand_frame.pack(side="left", padx=15, pady=10)
 
-        # Subtle Reset/Settings Button (Hidden in plain sight)
-        btn_settings = tk.Button(
+        lbl_logo = ctk.CTkLabel(brand_frame, text="", image=self.bag_logo)
+        lbl_logo.pack(side="left", padx=(0, 10))
+
+        lbl_name = ctk.CTkLabel(
+            brand_frame,
+            text="BOB SHOP",
+            font=ctk.CTkFont(family="Inter", size=16, weight="bold"),
+            text_color="#FFFFFF"
+        )
+        lbl_name.pack(side="left")
+
+        # Covert Settings Gear
+        btn_settings = ctk.CTkButton(
             top_bar,
             text="⚙️",
-            font=("Helvetica", 12),
-            bg="#000000",
-            fg="#FFFFFF",
-            bd=0,
-            activebackground="#000000",
-            activeforeground="#888888",
+            width=32,
+            height=32,
+            fg_color="transparent",
+            hover_color="#27272A",
+            font=ctk.CTkFont(size=14),
             command=self.show_tutorial
         )
         btn_settings.pack(side="right", padx=15)
 
-        # Product Grid Container
-        main_content = tk.Frame(self, bg="#FFFFFF", padx=15, pady=15)
-        main_content.pack(fill="both", expand=True)
+        # Store Feed
+        content = ctk.CTkScrollableFrame(self, fg_color="transparent")
+        content.pack(fill="both", expand=True, padx=15, pady=10)
 
-        tk.Label(
-            main_content, 
-            text="Fresh Produce Catalog", 
-            font=("Helvetica", 12, "bold"), 
-            bg="#FFFFFF"
-        ).pack(anchor="w", pady=(0, 10))
+        ctk.CTkLabel(content, text="Fresh Produce", font=ctk.CTkFont(size=14, weight="bold")).pack(anchor="w", pady=(5, 10))
 
-        # Mock Products
+        # Products Catalog
         products = [
-            (" Organic Bananas", "$1.29 / lb", "🍌"),
-            (" Fuji Apples", "$2.49 / lb", "🍎"),
-            (" Valencia Oranges", "$1.99 / lb", "🍊"),
-            (" Fresh Strawberries", "$3.99 / box", "🍓")
+            ("Organic Bananas", "$1.29 / lb", "🍌"),
+            ("Fuji Apples", "$2.49 / lb", "🍎"),
+            ("Valencia Oranges", "$1.99 / lb", "🍊"),
+            ("Fresh Strawberries", "$3.99 / box", "🍓"),
+            ("Avocado Bag", "$4.50 / ea", "🥑")
         ]
 
-        for name, price, icon in products:
-            card = tk.Frame(main_content, bg="#F9F9F9", highlightbackground="#E0E0E0", highlightthickness=1, pady=10, padx=10)
-            card.pack(fill="x", pady=6)
+        for name, price, emoji in products:
+            card = ctk.CTkFrame(content, fg_color="#18181B", corner_radius=12, height=70)
+            card.pack(fill="x", pady=5)
 
-            lbl_icon = tk.Label(card, text=icon, font=("Segoe UI Emoji", 20), bg="#F9F9F9")
-            lbl_icon.pack(side="left", padx=(5, 15))
+            lbl_emoji = ctk.CTkLabel(card, text=emoji, font=ctk.CTkFont(size=24))
+            lbl_emoji.pack(side="left", padx=15)
 
-            info_frame = tk.Frame(card, bg="#F9F9F9")
-            info_frame.pack(side="left")
+            details = ctk.CTkFrame(card, fg_color="transparent")
+            details.pack(side="left", fill="y", pady=10)
 
-            tk.Label(info_frame, text=name, font=("Helvetica", 10, "bold"), bg="#F9F9F9").pack(anchor="w")
-            tk.Label(info_frame, text=price, font=("Helvetica", 9), fg="#666666", bg="#F9F9F9").pack(anchor="w")
+            ctk.CTkLabel(details, text=name, font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w")
+            ctk.CTkLabel(details, text=price, font=ctk.CTkFont(size=11), text_color="#A1A1AA").pack(anchor="w")
 
-            btn_buy = tk.Button(
-                card, 
-                text="Add to Cart", 
-                font=("Helvetica", 8, "bold"), 
-                bg="#000000", 
-                fg="#FFFFFF", 
-                bd=0, 
-                padx=10, 
-                pady=5,
+            btn_buy = ctk.CTkButton(
+                card,
+                text="Add",
+                width=60,
+                height=28,
+                corner_radius=6,
+                fg_color="#27272A",
+                hover_color="#3F3F46",
+                font=ctk.CTkFont(size=11, weight="bold"),
                 command=lambda n=name: messagebox.showinfo("Bob Shop", f"Added {n} to cart.")
             )
-            btn_buy.pack(side="right")
+            btn_buy.pack(side="right", padx=15)
 
-        # Hidden Status Indicator
-        self.lbl_mic_status = tk.Label(
-            main_content, 
-            text="● Mic Active (Listening covertly)", 
-            font=("Helvetica", 8), 
-            fg="#A0A0A0", 
-            bg="#FFFFFF"
+        # Subtle Mic Status Footer
+        footer = ctk.CTkFrame(self, fg_color="#18181B", corner_radius=0, height=30)
+        footer.pack(fill="x", side="bottom")
+
+        self.lbl_mic = ctk.CTkLabel(
+            footer,
+            text="● Live Protection Active",
+            font=ctk.CTkFont(size=10),
+            text_color="#22C55E"
         )
-        self.lbl_mic_status.pack(side="bottom", pady=5)
+        self.lbl_mic.pack(pady=4)
 
-    # ==========================================
-    # 3. SECRET BACKGROUND SPEECH LISTENER
-    # ==========================================
+    # =========================================================
+    # 3. BACKGROUND VOICE RECOGNITION
+    # =========================================================
     def _background_mic_listener(self):
-        """
-        Monitors background audio for the secret activation phrase.
-        Integrates with the speech_recognition library if installed,
-        or operates in simulation mode as a fallback.
-        """
         try:
             import speech_recognition as sr
             recognizer = sr.Recognizer()
@@ -248,40 +289,32 @@ class BobShopApp(tk.Tk):
                     with mic as source:
                         audio = recognizer.listen(source, timeout=3, phrase_time_limit=5)
                     text = recognizer.recognize_google(audio).lower()
-                    
-                    target_phrase = self.config_data.get("trigger_phrase", "").lower()
-                    if target_phrase in text:
-                        self._trigger_emergency_alert(detected_text=text)
+
+                    target = self.config_data.get("trigger_phrase", "").lower()
+                    if target in text:
+                        self._trigger_alert(text)
 
                 except (sr.WaitTimeoutError, sr.UnknownValueError):
                     pass
-                except Exception as e:
+                except Exception:
                     time.sleep(1)
 
         except ImportError:
-            # Fallback Simulation Engine (when speech_recognition module isn't installed)
+            # Fallback if SpeechRecognition or PyAudio are not installed
             while self.is_listening:
                 time.sleep(2)
 
-    # ==========================================
-    # 4. EMERGENCY DISPATCH DISGUISE ACTION
-    # ==========================================
-    def _trigger_emergency_alert(self, detected_text="Trigger Phrase Recognized"):
-        """Executes the safe dispatch process when triggered."""
-        contacts = ", ".join(self.config_data.get("contacts", []))
-        
-        # Log to terminal / console
+    def _trigger_alert(self, detected_text):
+        contacts = self.config_data.get("contacts", "")
         print("\n" + "="*50)
-        print("🚨 [COVERT ALERT TRIGGERED] 🚨")
-        print(f"Phrase Recognized: '{detected_text}'")
-        print(f"Notifying Emergency Contacts: {contacts}")
-        print("Dispatching GPS Coordinates & Silent Audio Stream...")
+        print("🚨 [ALERT ACTIVATED] 🚨")
+        print(f"Detected Trigger: '{detected_text}'")
+        print(f"Dispatching to Contacts: {contacts}")
         print("="*50 + "\n")
 
-        # Visual indicator on UI thread (silent alert frame)
         self.after(0, lambda: messagebox.showwarning(
-            "Emergency Protocol Active", 
-            f"[TEST MODE] Secret trigger detected!\n\nAlert sent to contacts:\n{contacts}"
+            "Protocol Triggered",
+            f"[TEST MODE] Secret phrase recognized!\n\nDispatched emergency alert to:\n{contacts}"
         ))
 
     def _clear_window(self):
@@ -289,7 +322,6 @@ class BobShopApp(tk.Tk):
             widget.destroy()
 
 
-# --- ENTRY POINT ---
 if __name__ == "__main__":
     app = BobShopApp()
     app.mainloop()
