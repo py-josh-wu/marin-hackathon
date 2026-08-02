@@ -15,26 +15,25 @@ except ImportError:
 
 
 # ==========================================
-# CONFIGURATION & VIBRANT COLOR PALETTE
+# CONFIGURATION & COLOR PALETTE
 # ==========================================
 CONFIG_FILE = "bob_config.json"
 
 THEME = {
-    "bg": "#120924",               # Deep violet canvas
-    "surface": "#1E1238",          # Rich purple card background
-    "surface_hover": "#2A194C",    # Bright purple hover state
-    "nav_bg": "#180D30",           # Dark indigo top bar
-    "border": "#3B2567",           # Vivid purple border
-    "border_hover": "#818CF8",     # Electric indigo glow border
-    "accent_primary": "#6366F1",   # Vibrant indigo primary
+    "bg": "#120924",               # Deep violet background
+    "surface": "#1E1238",          # Card background
+    "surface_hover": "#2A194C",    # Card hover
+    "nav_bg": "#180D30",           # Navigation bar background
+    "border": "#3B2567",           # Border stroke
+    "border_hover": "#818CF8",     # Border hover glow
+    "accent_primary": "#6366F1",   # Electric Indigo
     "accent_primary_hover": "#4F46E5",
-    "accent_success": "#10B981",   # Bright emerald green
+    "accent_success": "#10B981",   # Emerald Green
     "accent_success_hover": "#059669",
-    "accent_warning": "#F59E0B",   # Amber gold
-    "text_main": "#FFFFFF",        # Crisp white text
-    "text_muted": "#C7D2FE",       # Soft lavender text
-    "status_active": "#34D399",    # Glowing mint green
-    "status_warn": "#FBBF24",      # Golden amber
+    "text_main": "#FFFFFF",        # White text
+    "text_muted": "#C7D2FE",       # Soft lavender
+    "status_active": "#34D399",    # Mint green
+    "status_warn": "#FBBF24",      # Amber gold
     "status_error": "#F87171"      # Coral red
 }
 
@@ -80,6 +79,53 @@ def save_config(config):
 
 
 # ==========================================
+# CUSTOM ROUNDED PILL BUTTON COMPONENT
+# ==========================================
+class RoundedButton(tk.Canvas):
+    def __init__(self, parent, text, command=None, width=140, height=38, radius=19,
+                 bg_color="#6366F1", hover_color="#4F46E5", text_color="#FFFFFF", font=("Helvetica", 9, "bold")):
+        super().__init__(parent, width=width, height=height, bg=parent["bg"], highlightthickness=0)
+        
+        self.command = command
+        self.bg_color = bg_color
+        self.hover_color = hover_color
+        self.text_color = text_color
+        self.font = font
+        self.radius = radius
+        self.btn_width = width
+        self.btn_height = height
+        self.text = text
+
+        self._draw(self.bg_color)
+
+        self.bind("<Enter>", lambda e: self._draw(self.hover_color))
+        self.bind("<Leave>", lambda e: self._draw(self.bg_color))
+        self.bind("<Button-1>", self._on_click)
+
+    def _draw(self, color):
+        self.delete("all")
+        r = self.radius
+        w = self.btn_width
+        h = self.btn_height
+
+        # Draw smooth rounded rectangle (pill container)
+        self.create_arc(0, 0, 2*r, 2*r, start=90, extent=90, fill=color, outline=color)
+        self.create_arc(w-2*r, 0, w, 2*r, start=0, extent=90, fill=color, outline=color)
+        self.create_arc(0, h-2*r, 2*r, h, start=180, extent=90, fill=color, outline=color)
+        self.create_arc(w-2*r, h-2*r, w, h, start=270, extent=90, fill=color, outline=color)
+        
+        self.create_rectangle(r, 0, w-r, h, fill=color, outline=color)
+        self.create_rectangle(0, r, w, h-r, fill=color, outline=color)
+
+        # Centered Text Label
+        self.create_text(w / 2, h / 2, text=self.text, fill=self.text_color, font=self.font)
+
+    def _on_click(self, event):
+        if self.command:
+            self.command()
+
+
+# ==========================================
 # MAIN APPLICATION CLASS
 # ==========================================
 class BobShopApp(tk.Tk):
@@ -87,7 +133,7 @@ class BobShopApp(tk.Tk):
         super().__init__()
 
         self.title("BOB SHOP")
-        self.geometry("960x820")
+        self.geometry("960x840")
         self.configure(bg=THEME["bg"])
         self.resizable(True, True)
         self.minsize(850, 700)
@@ -111,12 +157,10 @@ class BobShopApp(tk.Tk):
         w = 16 * scale
         h = 20 * scale
         r = 8 * scale
-        # Main bag body
         canvas.create_rectangle(
             center_x - w, center_y - (h/3), center_x + w, center_y + h,
             outline=THEME["accent_primary"], width=3, fill=THEME["surface"]
         )
-        # Handle
         canvas.create_arc(
             center_x - r, center_y - (h/3 + r), center_x + r, center_y - (h/3 - r/2),
             start=0, extent=180, outline=THEME["accent_primary"], width=3, style=tk.ARC
@@ -128,7 +172,7 @@ class BobShopApp(tk.Tk):
     def show_tutorial(self):
         self._clear_window()
 
-        # Modern Vibrant Header
+        # Header
         header = tk.Frame(self, bg=THEME["nav_bg"], height=95)
         header.pack(fill="x")
         header.pack_propagate(False)
@@ -143,19 +187,19 @@ class BobShopApp(tk.Tk):
         tk.Label(title_frame, text="Configure voice trigger & emergency contacts", font=("Helvetica", 9), fg=THEME["text_muted"], bg=THEME["nav_bg"]).pack(anchor="w")
 
         # Container
-        container = tk.Frame(self, bg=THEME["bg"], padx=40, pady=25)
+        container = tk.Frame(self, bg=THEME["bg"], padx=40, pady=20)
         container.pack(fill="both", expand=True)
 
         # Trigger Card
-        card_voice = tk.Frame(container, bg=THEME["surface"], padx=20, pady=18, highlightbackground=THEME["border"], highlightthickness=2)
-        card_voice.pack(fill="x", pady=(0, 20))
+        card_voice = tk.Frame(container, bg=THEME["surface"], padx=20, pady=16, highlightbackground=THEME["border"], highlightthickness=2)
+        card_voice.pack(fill="x", pady=(0, 15))
 
         tk.Label(card_voice, text="🎙️ Secret Voice Activation Phrase", font=("Helvetica", 11, "bold"), fg=THEME["text_main"], bg=THEME["surface"]).pack(anchor="w")
         tk.Label(
             card_voice, 
             text="Speaking this phrase anywhere while active silently triggers an emergency alert.",
             font=("Helvetica", 9), fg=THEME["text_muted"], bg=THEME["surface"]
-        ).pack(anchor="w", pady=(2, 12))
+        ).pack(anchor="w", pady=(2, 10))
 
         self.ent_phrase = tk.Entry(
             card_voice, font=("Helvetica", 11), bg=THEME["bg"], fg=THEME["text_main"],
@@ -164,8 +208,8 @@ class BobShopApp(tk.Tk):
         self.ent_phrase.insert(0, self.config_data.get("trigger_phrase", ""))
         self.ent_phrase.pack(fill="x", ipady=8, padx=2)
 
-        # Contact Mappings Grid
-        tk.Label(container, text="🛍️ Emergency Contact Mappings", font=("Helvetica", 12, "bold"), fg=THEME["text_main"], bg=THEME["bg"]).pack(anchor="w", pady=(5, 12))
+        # Mappings Grid
+        tk.Label(container, text="🛍️ Emergency Contact Mappings", font=("Helvetica", 12, "bold"), fg=THEME["text_main"], bg=THEME["bg"]).pack(anchor="w", pady=(5, 10))
 
         grid_container = tk.Frame(container, bg=THEME["bg"])
         grid_container.pack(fill="both", expand=True)
@@ -177,12 +221,12 @@ class BobShopApp(tk.Tk):
             row_idx = idx // 2
             col_idx = idx % 2
 
-            card = tk.Frame(grid_container, bg=THEME["surface"], highlightbackground=THEME["border"], highlightthickness=2, padx=14, pady=12)
-            card.grid(row=row_idx, column=col_idx, sticky="ew", padx=8, pady=6)
+            card = tk.Frame(grid_container, bg=THEME["surface"], highlightbackground=THEME["border"], highlightthickness=2, padx=14, pady=10)
+            card.grid(row=row_idx, column=col_idx, sticky="ew", padx=8, pady=5)
             grid_container.grid_columnconfigure(col_idx, weight=1)
 
             lbl = tk.Label(card, text=f"{emoji} {name}", font=("Helvetica", 10, "bold"), fg=THEME["text_main"], bg=THEME["surface"])
-            lbl.pack(anchor="w", pady=(0, 6))
+            lbl.pack(anchor="w", pady=(0, 4))
 
             ent = tk.Entry(
                 card, font=("Helvetica", 10), bg=THEME["bg"], fg=THEME["text_main"],
@@ -193,13 +237,17 @@ class BobShopApp(tk.Tk):
 
             self.contact_entries[name] = ent
 
-        # Complete Setup CTA Button
-        btn_complete = tk.Button(
-            self, text="Save Settings & Open Store", font=("Helvetica", 11, "bold"),
-            bg=THEME["accent_success"], fg="#FFFFFF", activebackground=THEME["accent_success_hover"], activeforeground="#FFFFFF",
-            bd=0, pady=14, cursor="hand2", command=self._finish_tutorial
+        # Bottom Rounded Save Button
+        btn_box = tk.Frame(self, bg=THEME["bg"], pady=15)
+        btn_box.pack(fill="x", side="bottom")
+
+        btn_save = RoundedButton(
+            btn_box, text="Save Settings & Launch Store", command=self._finish_tutorial,
+            width=320, height=44, radius=22,
+            bg_color=THEME["accent_success"], hover_color=THEME["accent_success_hover"],
+            font=("Helvetica", 11, "bold")
         )
-        btn_complete.pack(fill="x", padx=40, pady=20, side="bottom")
+        btn_save.pack(anchor="center")
 
     def _finish_tutorial(self):
         phrase = self.ent_phrase.get().strip().lower()
@@ -225,7 +273,7 @@ class BobShopApp(tk.Tk):
     def show_store_interface(self):
         self._clear_window()
 
-        # Navigation Header
+        # Top Bar
         nav = tk.Frame(self, bg=THEME["nav_bg"], height=70)
         nav.pack(fill="x")
         nav.pack_propagate(False)
@@ -237,16 +285,15 @@ class BobShopApp(tk.Tk):
         lbl_brand = tk.Label(nav, text="BOB SHOP", font=("Helvetica", 14, "bold"), fg=THEME["text_main"], bg=THEME["nav_bg"])
         lbl_brand.pack(side="left")
 
-        # Header Settings Button
-        btn_settings = tk.Button(
-            nav, text="⚙️ Settings", font=("Helvetica", 9, "bold"),
-            bg=THEME["surface"], fg=THEME["text_main"],
-            activebackground=THEME["accent_primary"], activeforeground="#FFFFFF",
-            bd=0, padx=16, pady=8, cursor="hand2", command=self.show_tutorial
+        # Top Right Settings Pill Button
+        btn_settings = RoundedButton(
+            nav, text="⚙️ Settings", command=self.show_tutorial,
+            width=120, height=36, radius=18,
+            bg_color=THEME["surface"], hover_color=THEME["accent_primary"]
         )
-        btn_settings.pack(side="right", padx=25)
+        btn_settings.pack(side="right", padx=25, pady=17)
 
-        # Catalog Area
+        # Main Catalog Area
         main_content = tk.Frame(self, bg=THEME["bg"], padx=30, pady=20)
         main_content.pack(fill="both", expand=True)
 
@@ -255,7 +302,7 @@ class BobShopApp(tk.Tk):
 
         tk.Label(header_box, text="Fresh Organic Produce", font=("Helvetica", 16, "bold"), fg=THEME["text_main"], bg=THEME["bg"]).pack(side="left")
 
-        # Product Grid
+        # Product Cards Grid
         grid_frame = tk.Frame(main_content, bg=THEME["bg"])
         grid_frame.pack(fill="both", expand=True)
 
@@ -263,7 +310,6 @@ class BobShopApp(tk.Tk):
             row_idx = idx // 3
             col_idx = idx % 3
 
-            # Vivid Product Card
             card = tk.Frame(
                 grid_frame, bg=THEME["surface"],
                 highlightbackground=THEME["border"], highlightthickness=2,
@@ -273,31 +319,27 @@ class BobShopApp(tk.Tk):
             grid_frame.grid_columnconfigure(col_idx, weight=1)
             grid_frame.grid_rowconfigure(row_idx, weight=1)
 
-            # Icon Display
             lbl_icon = tk.Label(card, text=icon, font=("Segoe UI Emoji", 38), bg=THEME["surface"])
             lbl_icon.pack(anchor="center", pady=(5, 8))
 
-            # Product Details
             lbl_title = tk.Label(card, text=name, font=("Helvetica", 12, "bold"), fg=THEME["text_main"], bg=THEME["surface"])
             lbl_title.pack(anchor="center")
 
             lbl_price = tk.Label(card, text=price, font=("Helvetica", 10, "bold"), fg=THEME["text_muted"], bg=THEME["surface"])
             lbl_price.pack(anchor="center", pady=(2, 14))
 
-            # Styled Vibrant Button
-            btn_buy = tk.Button(
-                card, text="Add to Cart 🛒", font=("Helvetica", 9, "bold"),
-                bg=THEME["accent_primary"], fg="#FFFFFF",
-                activebackground=THEME["accent_primary_hover"], activeforeground="#FFFFFF",
-                bd=0, padx=18, pady=8, cursor="hand2",
-                command=lambda n=name: self._on_product_clicked(n)
+            # Rounded Pill Button for Purchase
+            btn_buy = RoundedButton(
+                card, text="Add to Cart 🛒", command=lambda n=name: self._on_product_clicked(n),
+                width=140, height=36, radius=18,
+                bg_color=THEME["accent_primary"], hover_color=THEME["accent_primary_hover"]
             )
             btn_buy.pack(anchor="center", side="bottom")
 
-            # Bind Hover Interactions
-            self._attach_hover_effect(card, [lbl_icon, lbl_title, lbl_price])
+            # Attach Hover Animation Effects
+            self._attach_hover_effect(card, [lbl_icon, lbl_title, lbl_price], btn_buy)
 
-        # Bottom Status Footer
+        # Footer Status Bar
         self.footer = tk.Frame(self, bg=THEME["nav_bg"], height=40)
         self.footer.pack(fill="x", side="bottom")
 
@@ -315,17 +357,19 @@ class BobShopApp(tk.Tk):
 
         self._apply_status_ui()
 
-    # --- DYNAMIC CARD HOVER ENGINE ---
-    def _attach_hover_effect(self, card_widget, children):
+    # --- CARD HOVER DYNAMICS ---
+    def _attach_hover_effect(self, card_widget, children, button_widget):
         def on_enter(e):
             card_widget.config(bg=THEME["surface_hover"], highlightbackground=THEME["border_hover"])
             for child in children:
                 child.config(bg=THEME["surface_hover"])
+            button_widget.config(bg=THEME["surface_hover"])
 
         def on_leave(e):
             card_widget.config(bg=THEME["surface"], highlightbackground=THEME["border"])
             for child in children:
                 child.config(bg=THEME["surface"])
+            button_widget.config(bg=THEME["surface"])
 
         card_widget.bind("<Enter>", on_enter)
         card_widget.bind("<Leave>", on_leave)
