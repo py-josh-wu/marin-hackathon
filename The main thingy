@@ -102,6 +102,7 @@ PRODUCTS_LIST = [
 DEFAULT_CONFIG = {
     "first_run": True,
     "trigger_phrase": "hey bobify, can i buy a banana from hannah?",
+    "custom_notes": "Note: This is an automated notification from Bob Shop.",
     "fruit_contacts": {
         "Organic Bananas": "+15550199",
         "Fuji Apples": "+15550188",
@@ -127,6 +128,8 @@ def load_config():
             cfg = json.load(f)
             if "fruit_contacts" not in cfg:
                 cfg["fruit_contacts"] = DEFAULT_CONFIG["fruit_contacts"]
+            if "custom_notes" not in cfg:
+                cfg["custom_notes"] = DEFAULT_CONFIG["custom_notes"]
             return cfg
     except Exception:
         return DEFAULT_CONFIG
@@ -188,7 +191,7 @@ class BobShopApp(tk.Tk):
         super().__init__()
 
         self.title("BOB SHOP - AI Voice Task Assistant")
-        self.geometry("1080x900")
+        self.geometry("1080x950")
         self.configure(bg=THEME["bg"])
         self.resizable(True, True)
         self.minsize(950, 750)
@@ -227,7 +230,7 @@ class BobShopApp(tk.Tk):
             start=0, extent=180, outline=THEME["accent_primary"], width=3, style=tk.ARC
         )
 
-    # --- TUTORIAL / SETTINGS ---
+    # --- TUTORIAL / SETTINGS SCREEN ---
     def show_tutorial(self):
         self._clear_window()
 
@@ -242,12 +245,13 @@ class BobShopApp(tk.Tk):
         title_frame = tk.Frame(header, bg=THEME["nav_bg"])
         title_frame.pack(side="left", fill="y", pady=18)
         tk.Label(title_frame, text="BOB SHOP SETUP", font=("Helvetica", 14, "bold"), fg=THEME["text_main"], bg=THEME["nav_bg"]).pack(anchor="w")
-        tk.Label(title_frame, text="Configure voice trigger & SMS numbers (Use +1 E.164 format)", font=("Helvetica", 9), fg=THEME["text_muted"], bg=THEME["nav_bg"]).pack(anchor="w")
+        tk.Label(title_frame, text="Configure voice trigger, custom notes & target contacts", font=("Helvetica", 9), fg=THEME["text_muted"], bg=THEME["nav_bg"]).pack(anchor="w")
 
         container = tk.Frame(self, bg=THEME["bg"], padx=30, pady=15)
         container.pack(fill="both", expand=True)
 
-        card_voice = tk.Frame(container, bg=THEME["surface"], padx=16, pady=12, highlightbackground=THEME["border"], highlightthickness=1)
+        # 1. Voice Phrase Card
+        card_voice = tk.Frame(container, bg=THEME["surface"], padx=16, pady=10, highlightbackground=THEME["border"], highlightthickness=1)
         card_voice.pack(fill="x", pady=(0, 10))
 
         tk.Label(card_voice, text="🎙️ Secret Voice Activation Phrase", font=("Helvetica", 11, "bold"), fg=THEME["text_main"], bg=THEME["surface"]).pack(anchor="w")
@@ -257,9 +261,29 @@ class BobShopApp(tk.Tk):
             insertbackground=THEME["text_main"], bd=0, highlightthickness=1, highlightbackground=THEME["border"]
         )
         self.ent_phrase.insert(0, self.config_data.get("trigger_phrase", ""))
-        self.ent_phrase.pack(fill="x", ipady=6, padx=2)
+        self.ent_phrase.pack(fill="x", ipady=6, padx=2, pady=(4, 2))
 
-        tk.Label(container, text="📱 Target SMS Numbers for Each Item", font=("Helvetica", 11, "bold"), fg=THEME["text_main"], bg=THEME["bg"]).pack(anchor="w", pady=(5, 6))
+        # 2. ADDITIONAL NOTES CARD (NEW)
+        card_notes = tk.Frame(container, bg=THEME["surface"], padx=16, pady=10, highlightbackground=THEME["border"], highlightthickness=1)
+        card_notes.pack(fill="x", pady=(0, 10))
+
+        tk.Label(card_notes, text="📝 Additional Message Notes", font=("Helvetica", 11, "bold"), fg=THEME["text_main"], bg=THEME["surface"]).pack(anchor="w")
+        tk.Label(
+            card_notes, 
+            text="This custom message will be appended to every SMS text sent.",
+            font=("Helvetica", 8), fg=THEME["text_muted"], bg=THEME["surface"]
+        ).pack(anchor="w", pady=(1, 4))
+
+        self.txt_notes = tk.Text(
+            card_notes, font=("Helvetica", 9), bg=THEME["bg"], fg=THEME["text_main"],
+            insertbackground=THEME["text_main"], bd=0, highlightthickness=1, highlightbackground=THEME["border"],
+            height=3
+        )
+        self.txt_notes.insert("1.0", self.config_data.get("custom_notes", ""))
+        self.txt_notes.pack(fill="x", padx=2, pady=(2, 2))
+
+        # 3. SMS Contact Numbers Grid
+        tk.Label(container, text="📱 Target SMS Numbers for Each Item", font=("Helvetica", 11, "bold"), fg=THEME["text_main"], bg=THEME["bg"]).pack(anchor="w", pady=(2, 6))
 
         grid_container = tk.Frame(container, bg=THEME["bg"])
         grid_container.pack(fill="both", expand=True)
@@ -304,12 +328,15 @@ class BobShopApp(tk.Tk):
             messagebox.showwarning("Incomplete Setup", "Please specify a voice phrase.")
             return
 
+        notes = self.txt_notes.get("1.0", tk.END).strip()
+
         fruit_contacts = {}
         for name, ent in self.contact_entries.items():
             val = ent.get().strip()
             fruit_contacts[name] = val if val else "+15550199"
 
         self.config_data["trigger_phrase"] = phrase
+        self.config_data["custom_notes"] = notes
         self.config_data["fruit_contacts"] = fruit_contacts
         self.config_data["first_run"] = False
         save_config(self.config_data)
@@ -396,12 +423,16 @@ class BobShopApp(tk.Tk):
 
         self._apply_status_ui()
 
-    # --- BUTTON CLICK HANDLER (TRIGGERS REAL SMS) ---
+    # --- BUTTON CLICK HANDLER ---
     def _on_product_clicked(self, product_name):
         assigned_number = self.config_data.get("fruit_contacts", {}).get(product_name, "+15550199")
-        sms_message = f"Alert: An item ({product_name}) was selected in the Bob Shop application."
+        custom_note = self.config_data.get("custom_notes", "").strip()
 
-        # Send actual SMS
+        # Build message payload including custom notes
+        sms_message = f"Alert: An item ({product_name}) was selected in Bob Shop."
+        if custom_note:
+            sms_message += f"\n\nAdditional Note:\n{custom_note}"
+
         sent_status = send_real_sms(assigned_number, sms_message)
 
         if sent_status:
@@ -447,18 +478,21 @@ class BobShopApp(tk.Tk):
                 time.sleep(1)
 
     def _trigger_voice_alert(self, detected_text):
-        """Triggers real SMS alerts for all configured contacts when voice phrase is spoken."""
+        """Triggers real SMS alerts containing custom notes for all contacts."""
         contacts = list(self.config_data.get("fruit_contacts", {}).values())
         unique_numbers = list(set(contacts))
+        custom_note = self.config_data.get("custom_notes", "").strip()
 
         sms_message = f"🚨 EMERGENCY ALERT: Secret phrase detected! Audio: '{detected_text}'"
+        if custom_note:
+            sms_message += f"\n\nAdditional Note:\n{custom_note}"
 
         for number in unique_numbers:
             send_real_sms(number, sms_message)
 
         self.after(0, lambda: messagebox.showwarning(
             "Emergency Protocol Active",
-            f"Voice phrase detected!\n\nRecognized Audio: '{detected_text}'\n\n📲 Dispatching SMS alerts to {len(unique_numbers)} emergency contact numbers."
+            f"Voice phrase detected!\n\nRecognized Audio: '{detected_text}'\n\n📲 Dispatching SMS alerts with notes to {len(unique_numbers)} numbers."
         ))
 
     def _update_status(self, message, color):
