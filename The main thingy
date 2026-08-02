@@ -1252,3 +1252,432 @@ body {
         display: none;
     }
 }
+
+
+/* ==========================================================================
+   Bob Shop - Application Logic & Stealth Speech Recognition Engine
+   ========================================================================== */
+
+// Store Catalog Data (Facade)
+const PRODUCTS = [
+    {
+        id: 1,
+        name: "Organic Cavendish Bananas",
+        category: "Bananas & Tropical",
+        price: 1.99,
+        unit: "per lb",
+        emoji: "🍌",
+        description: "Sweet, high-potassium organic bananas grown sustainably."
+    },
+    {
+        id: 2,
+        name: "Crisp Honeycrisp Apples",
+        category: "Apples & Pears",
+        price: 2.49,
+        unit: "per lb",
+        emoji: "🍎",
+        description: "Extra juicy and crunchy red apples, picked fresh daily."
+    },
+    {
+        id: 3,
+        name: "Organic Sweet Strawberries",
+        category: "Berries",
+        price: 3.99,
+        unit: "16 oz pack",
+        emoji: "🍓",
+        description: "Vibrant red ripe strawberries packed with natural sweetness."
+    },
+    {
+        id: 4,
+        name: "Golden Sweet Pineapple",
+        category: "Bananas & Tropical",
+        price: 3.49,
+        unit: "each",
+        emoji: "🍍",
+        description: "Tropical golden pineapple with rich aroma and high vitamin C."
+    },
+    {
+        id: 5,
+        name: "Fresh Hass Avocados",
+        category: "Bananas & Tropical",
+        price: 1.50,
+        unit: "each",
+        emoji: "🥑",
+        description: "Creamy Hass avocados perfect for toast or fresh guacamole."
+    },
+    {
+        id: 6,
+        name: "Valencia Juicing Oranges",
+        category: "All Produce",
+        price: 4.29,
+        unit: "3 lb bag",
+        emoji: "🍊",
+        description: "Bursting with citrus juice and essential vitamins."
+    },
+    {
+        id: 7,
+        name: "Fresh Wild Blueberries",
+        category: "Berries",
+        price: 4.99,
+        unit: "11 oz container",
+        emoji: "🫐",
+        description: "Antioxidant-rich organic wild blueberries."
+    },
+    {
+        id: 8,
+        name: "Seedless Crimson Watermelon",
+        category: "All Produce",
+        price: 5.99,
+        unit: "whole melon",
+        emoji: "🍉",
+        description: "Refreshing seedless watermelon ideal for hot summer days."
+    }
+];
+
+// Default Initial Contacts
+const DEFAULT_CONTACTS = [
+    { id: 1, name: "Hannah (Primary Contact)", phone: "(555) 234-5678", relation: "Friend" },
+    { id: 2, name: "Mom", phone: "(555) 876-5432", relation: "Family" },
+    { id: 3, name: "David (Brother)", phone: "(555) 345-6789", relation: "Family" }
+];
+
+// App State
+let state = {
+    cart: [],
+    contacts: JSON.parse(localStorage.getItem('bobshop_contacts')) || DEFAULT_CONTACTS,
+    primaryPhrase: localStorage.getItem('bobshop_phrase_primary') || "HEY BOBIFY, CAN I BUY A BANANA FROM HANNAH?",
+    secondaryPhrase: localStorage.getItem('bobshop_phrase_secondary') || "IS THE ORGANIC APPLE IN STOCK TODAY?",
+    fakeCallPhrase: localStorage.getItem('bobshop_phrase_call') || "PLEASE CANCEL MY BANANA ORDER",
+    enable911: localStorage.getItem('bobshop_enable911') !== 'false',
+    autoStartMic: localStorage.getItem('bobshop_automic') !== 'false',
+    hasCompletedSetup: localStorage.getItem('bobshop_setup_completed') === 'true',
+    isListening: false
+};
+
+// Speech Recognition Instance
+let recognition = null;
+
+// Initialize on DOM Ready
+document.addEventListener('DOMContentLoaded', () => {
+    initCatalog();
+    initSetupTabs();
+    initContactsUI();
+    initEventListeners();
+    initSpeechRecognition();
+
+    // Check setup state: First run shows tutorial, repeat run shows store directly with mic on!
+    if (state.hasCompletedSetup) {
+        closeModal('setupModal');
+        if (state.autoStartMic) {
+            startSpeechListening();
+        }
+    } else {
+        openModal('setupModal');
+    }
+});
+
+// Render Catalog
+function initCatalog() {
+    const grid = document.getElementById('productGrid');
+    if (!grid) return;
+
+    grid.innerHTML = PRODUCTS.map(product => `
+        <div class="product-card">
+            <div class="product-image-box">${product.emoji}</div>
+            <h3 class="product-title">${product.name}</h3>
+            <p class="product-desc">${product.description}</p>
+            <div class="product-bottom">
+                <div class="product-price">$${product.price.toFixed(2)} <span>/${product.unit}</span></div>
+                <button class="add-cart-btn" onclick="addToCart(${product.id})">+ Add</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+// Shopping Cart Actions
+function addToCart(productId) {
+    const product = PRODUCTS.find(p => p.id === productId);
+    if (!product) return;
+
+    state.cart.push(product);
+    updateCartUI();
+}
+
+function updateCartUI() {
+    const badge = document.getElementById('cartBadge');
+    const itemsList = document.getElementById('cartItemsList');
+    const totalEl = document.getElementById('cartTotal');
+
+    if (badge) badge.innerText = state.cart.length;
+
+    if (state.cart.length === 0) {
+        itemsList.innerHTML = `<p class="empty-cart-msg">Your shopping cart is empty.</p>`;
+        totalEl.innerText = "$0.00";
+        return;
+    }
+
+    const total = state.cart.reduce((sum, item) => sum + item.price, 0);
+    totalEl.innerText = `$${total.toFixed(2)}`;
+
+    itemsList.innerHTML = state.cart.map((item, index) => `
+        <div class="cart-item" style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f3f4f6;">
+            <div>
+                <strong>${item.emoji} ${item.name}</strong>
+                <div style="font-size: 0.8rem; color: #666;">$${item.price.toFixed(2)}</div>
+            </div>
+            <button onclick="removeFromCart(${index})" style="background: none; border: none; color: #ef4444; cursor: pointer;">Remove</button>
+        </div>
+    `).join('');
+}
+
+function removeFromCart(index) {
+    state.cart.splice(index, 1);
+    updateCartUI();
+}
+
+// Tab Switching in Setup Modal
+function initSetupTabs() {
+    const tabs = document.querySelectorAll('.setup-tabs .tab-btn');
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            tabs.forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+            tab.classList.add('active');
+            const targetId = tab.getAttribute('data-tab');
+            document.getElementById(targetId).classList.add('active');
+        });
+    });
+}
+
+// Contacts UI
+function initContactsUI() {
+    const contactsList = document.getElementById('contactsList');
+    if (!contactsList) return;
+
+    contactsList.innerHTML = state.contacts.map(c => `
+        <div class="contact-card">
+            <div class="contact-info">
+                <div class="avatar">${c.name.charAt(0)}</div>
+                <div>
+                    <div class="contact-name">${c.name}</div>
+                    <div class="contact-phone">${c.phone} • ${c.relation}</div>
+                </div>
+            </div>
+            <button onclick="removeContact(${c.id})" class="btn-secondary" style="color: #ef4444; border-color: #fee2e2;">Remove</button>
+        </div>
+    `).join('');
+}
+
+function removeContact(id) {
+    state.contacts = state.contacts.filter(c => c.id !== id);
+    localStorage.setItem('bobshop_contacts', JSON.stringify(state.contacts));
+    initContactsUI();
+}
+
+function addContactPrompt() {
+    const name = prompt("Enter Emergency Contact Name:");
+    if (!name) return;
+    const phone = prompt("Enter Contact Phone Number:");
+    if (!phone) return;
+
+    const newContact = {
+        id: Date.now(),
+        name: name,
+        phone: phone,
+        relation: "Custom Contact"
+    };
+
+    state.contacts.push(newContact);
+    localStorage.setItem('bobshop_contacts', JSON.stringify(state.contacts));
+    initContactsUI();
+}
+
+// Event Listeners
+function initEventListeners() {
+    // Logo Long Press (Hold 3 Seconds for Settings)
+    const brandLogo = document.getElementById('brandLogo');
+    let pressTimer;
+
+    brandLogo.addEventListener('mousedown', () => {
+        pressTimer = setTimeout(() => {
+            openModal('setupModal');
+        }, 2000);
+    });
+
+    brandLogo.addEventListener('mouseup', () => clearTimeout(pressTimer));
+    brandLogo.addEventListener('mouseleave', () => clearTimeout(pressTimer));
+    brandLogo.addEventListener('touchstart', () => {
+        pressTimer = setTimeout(() => {
+            openModal('setupModal');
+        }, 2000);
+    });
+    brandLogo.addEventListener('touchend', () => clearTimeout(pressTimer));
+
+    // Nav Buttons
+    document.getElementById('openSetupBtn').addEventListener('click', () => openModal('setupModal'));
+    document.getElementById('cartBtn').addEventListener('click', () => openModal('cartModal'));
+    document.getElementById('closeCartBtn').addEventListener('click', () => closeModal('cartModal'));
+    document.getElementById('addContactBtn').addEventListener('click', addContactPrompt);
+
+    // Save & Finish Setup
+    document.getElementById('finishSetupBtn').addEventListener('click', () => {
+        // Save Settings
+        state.primaryPhrase = document.getElementById('phrasePrimary').value.toUpperCase().trim();
+        state.secondaryPhrase = document.getElementById('phraseSecondary').value.toUpperCase().trim();
+        state.fakeCallPhrase = document.getElementById('phraseCall').value.toUpperCase().trim();
+        state.enable911 = document.getElementById('enable911').checked;
+        state.autoStartMic = document.getElementById('autoStartMic').checked;
+        state.hasCompletedSetup = true;
+
+        localStorage.setItem('bobshop_phrase_primary', state.primaryPhrase);
+        localStorage.setItem('bobshop_phrase_secondary', state.secondaryPhrase);
+        localStorage.setItem('bobshop_phrase_call', state.fakeCallPhrase);
+        localStorage.setItem('bobshop_enable911', state.enable911);
+        localStorage.setItem('bobshop_automic', state.autoStartMic);
+        localStorage.setItem('bobshop_setup_completed', 'true');
+
+        closeModal('setupModal');
+        startSpeechListening();
+    });
+
+    // Simulated Phrase Test Input
+    document.getElementById('testPhraseBtn').addEventListener('click', () => {
+        const input = document.getElementById('simulatedPhraseInput');
+        if (input && input.value) {
+            processTranscript(input.value);
+        }
+    });
+
+    // Close SOS Modal
+    document.getElementById('cancelSosBtn').addEventListener('click', () => closeModal('emergencyDispatchModal'));
+    document.getElementById('closeSosBtn').addEventListener('click', () => closeModal('emergencyDispatchModal'));
+}
+
+// Modal Helpers
+function openModal(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.add('active');
+}
+
+function closeModal(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('active');
+}
+
+// Web Speech Engine Integration
+function initSpeechRecognition() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+        console.warn("Web Speech API not supported in this browser environment. Stealth test bar is available.");
+        const display = document.getElementById('transcriptDisplay');
+        if (display) {
+            display.innerHTML = `<span style="color: #d97706;">⚠️ Browser direct speech recognition not detected. Use the simulator bar below to test trigger phrases seamlessly!</span>`;
+        }
+        return;
+    }
+
+    recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    recognition.onresult = (event) => {
+        let transcript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+            transcript += event.results[i][0].transcript;
+        }
+        processTranscript(transcript);
+    };
+
+    recognition.onerror = (event) => {
+        console.log('Speech recognition status:', event.error);
+    };
+
+    recognition.onend = () => {
+        // Auto-restart to keep secret microphone continuously running
+        if (state.isListening) {
+            try { recognition.start(); } catch (e) {}
+        }
+    };
+}
+
+function startSpeechListening() {
+    state.isListening = true;
+    const indicatorText = document.getElementById('micStatusText');
+    if (indicatorText) indicatorText.innerText = "LISTENING ACTIVE";
+
+    if (recognition) {
+        try {
+            recognition.start();
+        } catch (e) {
+            console.log('Recognition already active');
+        }
+    }
+}
+
+// Transcript Processing & Keyword Matching
+function processTranscript(text) {
+    const transcriptDisplay = document.getElementById('transcriptDisplay');
+    const upperText = text.toUpperCase();
+
+    if (transcriptDisplay) {
+        transcriptDisplay.innerText = `[Live Mic Input]: "${text}"`;
+    }
+
+    // Check Primary Emergency Trigger Phrase (e.g. "HEY BOBIFY, CAN I BUY A BANANA FROM HANNAH?")
+    const targetPrimary = state.primaryPhrase || "HEY BOBIFY, CAN I BUY A BANANA FROM HANNAH?";
+    if (upperText.includes("HEY BOBIFY") || upperText.includes("BUY A BANANA FROM HANNAH") || upperText.includes(targetPrimary)) {
+        triggerEmergencyAlert(text, "PRIMARY_911_CONTACTS");
+    } 
+    // Check Secondary Trigger Phrase
+    else if (state.secondaryPhrase && upperText.includes(state.secondaryPhrase)) {
+        triggerEmergencyAlert(text, "CONTACTS_ONLY");
+    }
+}
+
+// Emergency SOS Activation Payload
+function triggerEmergencyAlert(recognizedText, alertType) {
+    openModal('emergencyDispatchModal');
+
+    document.getElementById('recognizedPhraseText').innerText = `"${recognizedText}"`;
+    document.getElementById('dispatchStatusText').innerText = alertType === "PRIMARY_911_CONTACTS" 
+        ? "Emergency Voice Trigger Activated! Alerting 911 & Contacts..."
+        : "Silent Emergency Trigger Activated! Broadcasting location to contacts...";
+
+    const status911 = document.getElementById('status911');
+    const statusSMS = document.getElementById('statusSMS');
+    const locationEl = document.getElementById('gpsLocationText');
+
+    // Simulate Location Capture
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                locationEl.innerText = `Lat: ${pos.coords.latitude.toFixed(4)}, Long: ${pos.coords.longitude.toFixed(4)} (Accuracy: ~${pos.coords.accuracy}m)`;
+            },
+            (err) => {
+                locationEl.innerText = "Lat: 37.7749° N, Long: 122.4194° W (Simulated GPS Fix)";
+            }
+        );
+    } else {
+        locationEl.innerText = "Lat: 37.7749° N, Long: 122.4194° W (Simulated GPS Fix)";
+    }
+
+    // Update Dispatch Simulation Steps
+    setTimeout(() => {
+        if (state.enable911 && alertType === "PRIMARY_911_CONTACTS") {
+            status911.className = "success";
+            status911.innerText = "✓ 911 Emergency Dispatch Simulation Initiated";
+        } else {
+            status911.className = "pending";
+            status911.innerText = "ℹ️ 911 Dispatch bypassed (Contacts alert only)";
+        }
+    }, 1200);
+
+    setTimeout(() => {
+        statusSMS.className = "success";
+        const contactNames = state.contacts.map(c => c.name).join(", ");
+        statusSMS.innerText = `✓ Emergency SMS & Location Broadcast dispatched to: ${contactNames || "Hannah, Mom"}`;
+    }, 2400);
+}
