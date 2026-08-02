@@ -15,9 +15,24 @@ except ImportError:
 
 
 # ==========================================
-# CONFIGURATION & STORAGE
+# CONFIGURATION & COLOR PALETTE
 # ==========================================
 CONFIG_FILE = "bob_config.json"
+
+THEME = {
+    "bg": "#0B0F19",             # Deep navy background
+    "surface": "#111827",        # Dark card surface
+    "surface_hover": "#1F2937",  # Hover highlight state
+    "border": "#1F2937",         # Subtle border color
+    "border_hover": "#374151",   # Hover border state
+    "accent": "#6366F1",         # Indigo accent
+    "accent_hover": "#4F46E5",   # Darker indigo hover
+    "text_main": "#F9FAFB",      # Bright text
+    "text_muted": "#9CA3AF",     # Muted text
+    "status_active": "#10B981",  # Emerald green
+    "status_warn": "#F59E0B",    # Amber yellow
+    "status_error": "#EF4444"    # Rose red
+}
 
 PRODUCTS_LIST = [
     ("Organic Bananas", "$1.29 / lb", "🍌"),
@@ -67,19 +82,18 @@ class BobShopApp(tk.Tk):
     def __init__(self):
         super().__init__()
 
-        # Expanded Desktop Window Size
-        self.title("Bob Shop")
-        self.geometry("900x780")
-        self.configure(bg="#0F0F11")
+        self.title("BOB SHOP")
+        self.geometry("960x800")
+        self.configure(bg=THEME["bg"])
         self.resizable(True, True)
-        self.minsize(800, 650)
+        self.minsize(850, 700)
 
         self.config_data = load_config()
         self.is_listening = True
-        self.mic_status_text = "Initializing Mic..."
-        self.mic_status_color = "#EAB308"
+        self.mic_status_text = "Initializing Protection..."
+        self.mic_status_color = THEME["status_warn"]
 
-        # Start Speech Listener Thread
+        # Speech Listener Thread
         self.listener_thread = threading.Thread(target=self._start_speech_recognition, daemon=True)
         self.listener_thread.start()
 
@@ -88,54 +102,68 @@ class BobShopApp(tk.Tk):
         else:
             self.show_store_interface()
 
-    # --- CANVAS-DRAWN LOGO ---
-    def _draw_shopping_bag_logo(self, canvas, center_x, center_y):
+    # --- BRAND LOGO CANVAS ---
+    def _draw_brand_logo(self, canvas, center_x, center_y, scale=1.0):
+        w = 16 * scale
+        h = 20 * scale
+        r = 8 * scale
+        # Main bag body
         canvas.create_rectangle(
-            center_x - 18, center_y - 10, center_x + 18, center_y + 22,
-            outline="#FFFFFF", width=3, fill="#0F0F11"
+            center_x - w, center_y - (h/3), center_x + w, center_y + h,
+            outline=THEME["accent"], width=2, fill=THEME["surface"]
         )
+        # Handle
         canvas.create_arc(
-            center_x - 10, center_y - 20, center_x + 10, center_y - 2,
-            start=0, extent=180, outline="#FFFFFF", width=3, style=tk.ARC
+            center_x - r, center_y - (h/3 + r), center_x + r, center_y - (h/3 - r/2),
+            start=0, extent=180, outline=THEME["accent"], width=2, style=tk.ARC
         )
 
     # ==========================================
-    # 1. SETUP & CONTACT SETTINGS SCREEN
+    # 1. MODERN SETUP & CONFIGURATION SCREEN
     # ==========================================
     def show_tutorial(self):
         self._clear_window()
 
-        # Canvas Header
-        header_canvas = tk.Canvas(self, bg="#18181B", height=100, highlightthickness=0)
-        header_canvas.pack(fill="x")
-        self._draw_shopping_bag_logo(header_canvas, 450, 35)
-        header_canvas.create_text(450, 78, text="BOB SHOP SETUP & DISGUISE CONFIGURATION", fill="#FFFFFF", font=("Helvetica", 14, "bold"))
+        # Modern Header Banner
+        header = tk.Frame(self, bg=THEME["surface"], height=90)
+        header.pack(fill="x")
+        header.pack_propagate(False)
 
-        body = tk.Frame(self, bg="#0F0F11", padx=40, pady=20)
-        body.pack(fill="both", expand=True)
+        logo_canvas = tk.Canvas(header, bg=THEME["surface"], width=60, height=60, highlightthickness=0)
+        logo_canvas.pack(side="left", padx=(30, 10), pady=15)
+        self._draw_brand_logo(logo_canvas, 30, 30, scale=1.1)
 
-        # Voice Trigger Section
-        card_voice = tk.Frame(body, bg="#18181B", padx=20, pady=15, highlightbackground="#27272A", highlightthickness=1)
+        title_frame = tk.Frame(header, bg=THEME["surface"])
+        title_frame.pack(side="left", fill="y", pady=20)
+        tk.Label(title_frame, text="BOB SHOP", font=("Helvetica", 14, "bold"), fg=THEME["text_main"], bg=THEME["surface"]).pack(anchor="w")
+        tk.Label(title_frame, text="Disguise & Emergency Protocol Setup", font=("Helvetica", 9), fg=THEME["text_muted"], bg=THEME["surface"]).pack(anchor="w")
+
+        # Main Scrollable / Padded Area
+        container = tk.Frame(self, bg=THEME["bg"], padx=40, pady=25)
+        container.pack(fill="both", expand=True)
+
+        # Trigger Phrase Card
+        card_voice = tk.Frame(container, bg=THEME["surface"], padx=20, pady=16, highlightbackground=THEME["border"], highlightthickness=1)
         card_voice.pack(fill="x", pady=(0, 20))
 
-        tk.Label(card_voice, text="Secret Voice Activation Phrase", font=("Helvetica", 11, "bold"), fg="#FFFFFF", bg="#18181B").pack(anchor="w", pady=(0, 5))
+        tk.Label(card_voice, text="🎙️ Secret Voice Activation Phrase", font=("Helvetica", 11, "bold"), fg=THEME["text_main"], bg=THEME["surface"]).pack(anchor="w")
         tk.Label(
             card_voice, 
-            text="Saying this phrase anywhere while the app is open silently triggers a broadcast alert to all assigned contacts.",
-            font=("Helvetica", 9), fg="#A1A1AA", bg="#18181B"
-        ).pack(anchor="w", pady=(0, 10))
+            text="Speaking this phrase anywhere while the application is active silently broadcasts emergency alerts.",
+            font=("Helvetica", 9), fg=THEME["text_muted"], bg=THEME["surface"]
+        ).pack(anchor="w", pady=(2, 12))
 
         self.ent_phrase = tk.Entry(
-            card_voice, font=("Helvetica", 11), bg="#0F0F11", fg="#FFFFFF",
-            insertbackground="#FFFFFF", bd=0, highlightthickness=1, highlightbackground="#27272A"
+            card_voice, font=("Helvetica", 11), bg=THEME["bg"], fg=THEME["text_main"],
+            insertbackground=THEME["text_main"], bd=0, highlightthickness=1, highlightbackground=THEME["border"]
         )
         self.ent_phrase.insert(0, self.config_data.get("trigger_phrase", ""))
-        self.ent_phrase.pack(fill="x", ipady=8)
+        self.ent_phrase.pack(fill="x", ipady=8, padx=2)
 
-        # Product-to-Contact Assignment Grid
-        tk.Label(body, text="Assign Emergency Contacts to Product Purchase Triggers", font=("Helvetica", 11, "bold"), fg="#FFFFFF", bg="#0F0F11").pack(anchor="w", pady=(5, 10))
+        # Fruit Contact Mappings Grid
+        tk.Label(container, text="🛍️ Product Contact Mappings", font=("Helvetica", 11, "bold"), fg=THEME["text_main"], bg=THEME["bg"]).pack(anchor="w", pady=(5, 12))
 
-        grid_container = tk.Frame(body, bg="#0F0F11")
+        grid_container = tk.Frame(container, bg=THEME["bg"])
         grid_container.pack(fill="both", expand=True)
 
         self.contact_entries = {}
@@ -145,26 +173,26 @@ class BobShopApp(tk.Tk):
             row_idx = idx // 2
             col_idx = idx % 2
 
-            card = tk.Frame(grid_container, bg="#18181B", highlightbackground="#27272A", highlightthickness=1, padx=12, pady=10)
+            card = tk.Frame(grid_container, bg=THEME["surface"], highlightbackground=THEME["border"], highlightthickness=1, padx=14, pady=12)
             card.grid(row=row_idx, column=col_idx, sticky="ew", padx=8, pady=6)
             grid_container.grid_columnconfigure(col_idx, weight=1)
 
-            lbl = tk.Label(card, text=f"{emoji} {name}", font=("Helvetica", 10, "bold"), fg="#FFFFFF", bg="#18181B")
-            lbl.pack(anchor="w", pady=(0, 4))
+            lbl = tk.Label(card, text=f"{emoji} {name}", font=("Helvetica", 10, "bold"), fg=THEME["text_main"], bg=THEME["surface"])
+            lbl.pack(anchor="w", pady=(0, 6))
 
             ent = tk.Entry(
-                card, font=("Helvetica", 10), bg="#0F0F11", fg="#FFFFFF",
-                insertbackground="#FFFFFF", bd=0, highlightthickness=1, highlightbackground="#27272A"
+                card, font=("Helvetica", 10), bg=THEME["bg"], fg=THEME["text_main"],
+                insertbackground=THEME["text_main"], bd=0, highlightthickness=1, highlightbackground=THEME["border"]
             )
             ent.insert(0, current_mappings.get(name, "911 Emergency Dispatch"))
             ent.pack(fill="x", ipady=6)
 
             self.contact_entries[name] = ent
 
-        # Complete Setup Button
+        # Complete Setup CTA Button
         btn_complete = tk.Button(
-            self, text="SAVE SETTINGS & LAUNCH STORE DISGUISE", font=("Helvetica", 11, "bold"),
-            bg="#FFFFFF", fg="#000000", activebackground="#E4E4E7", activeforeground="#000000",
+            self, text="Save Settings & Launch Store", font=("Helvetica", 11, "bold"),
+            bg=THEME["accent"], fg="#FFFFFF", activebackground=THEME["accent_hover"], activeforeground="#FFFFFF",
             bd=0, pady=14, cursor="hand2", command=self._finish_tutorial
         )
         btn_complete.pack(fill="x", padx=40, pady=20, side="bottom")
@@ -172,7 +200,7 @@ class BobShopApp(tk.Tk):
     def _finish_tutorial(self):
         phrase = self.ent_phrase.get().strip().lower()
         if not phrase:
-            messagebox.showwarning("Incomplete Setup", "Please set an activation phrase.")
+            messagebox.showwarning("Incomplete Setup", "Please specify a voice activation phrase.")
             return
 
         fruit_contacts = {}
@@ -188,69 +216,117 @@ class BobShopApp(tk.Tk):
         self.show_store_interface()
 
     # ==========================================
-    # 2. DISGUISED STORE FRONTEND (DESKTOP)
+    # 2. DYNAMIC STORE FRONTEND
     # ==========================================
     def show_store_interface(self):
         self._clear_window()
 
-        # Navbar
-        top_bar = tk.Frame(self, bg="#18181B", height=65)
-        top_bar.pack(fill="x")
-        top_bar.pack_propagate(False)
+        # Top Navigation Bar
+        nav = tk.Frame(self, bg=THEME["surface"], height=65)
+        nav.pack(fill="x")
+        nav.pack_propagate(False)
 
-        logo_canvas = tk.Canvas(top_bar, bg="#18181B", width=45, height=50, highlightthickness=0)
-        logo_canvas.pack(side="left", padx=(25, 10), pady=8)
-        self._draw_shopping_bag_logo(logo_canvas, 22, 25)
+        logo_canvas = tk.Canvas(nav, bg=THEME["surface"], width=45, height=45, highlightthickness=0)
+        logo_canvas.pack(side="left", padx=(25, 8), pady=10)
+        self._draw_brand_logo(logo_canvas, 22, 22, scale=0.9)
 
-        lbl_title = tk.Label(top_bar, text="BOB SHOP", font=("Helvetica", 14, "bold"), fg="#FFFFFF", bg="#18181B")
-        lbl_title.pack(side="left")
+        lbl_brand = tk.Label(nav, text="BOB SHOP", font=("Helvetica", 13, "bold"), fg=THEME["text_main"], bg=THEME["surface"])
+        lbl_brand.pack(side="left")
 
+        # Settings Pill Button
         btn_settings = tk.Button(
-            top_bar, text="⚙️ Settings", font=("Helvetica", 10, "bold"), bg="#27272A", fg="#FFFFFF",
-            activebackground="#3F3F46", bd=0, padx=12, pady=6, cursor="hand2", command=self.show_tutorial
+            nav, text="⚙️ Configure Mappings", font=("Helvetica", 9, "bold"),
+            bg=THEME["bg"], fg=THEME["text_main"], activebackground=THEME["surface_hover"], activeforeground=THEME["text_main"],
+            bd=0, padx=14, pady=8, cursor="hand2", command=self.show_tutorial
         )
         btn_settings.pack(side="right", padx=25)
 
-        # Store Grid Layout
-        content = tk.Frame(self, bg="#0F0F11", padx=25, pady=20)
-        content.pack(fill="both", expand=True)
+        # Catalog Header
+        main_content = tk.Frame(self, bg=THEME["bg"], padx=30, pady=20)
+        main_content.pack(fill="both", expand=True)
 
-        tk.Label(content, text="Fresh Produce Catalog", font=("Helvetica", 14, "bold"), fg="#FFFFFF", bg="#0F0F11").pack(anchor="w", pady=(0, 15))
+        header_box = tk.Frame(main_content, bg=THEME["bg"])
+        header_box.pack(fill="x", pady=(0, 15))
 
-        grid_frame = tk.Frame(content, bg="#0F0F11")
+        tk.Label(header_box, text="Fresh Organic Produce", font=("Helvetica", 15, "bold"), fg=THEME["text_main"], bg=THEME["bg"]).pack(side="left")
+
+        # Product Grid Container
+        grid_frame = tk.Frame(main_content, bg=THEME["bg"])
         grid_frame.pack(fill="both", expand=True)
 
         for idx, (name, price, icon) in enumerate(PRODUCTS_LIST):
             row_idx = idx // 3
             col_idx = idx % 3
 
-            card = tk.Frame(grid_frame, bg="#18181B", highlightbackground="#27272A", highlightthickness=1, padx=16, pady=16)
+            # Modern Card with Dynamic Hover
+            card = tk.Frame(
+                grid_frame, bg=THEME["surface"],
+                highlightbackground=THEME["border"], highlightthickness=1,
+                padx=16, pady=16
+            )
             card.grid(row=row_idx, column=col_idx, sticky="nsew", padx=10, pady=10)
             grid_frame.grid_columnconfigure(col_idx, weight=1)
             grid_frame.grid_rowconfigure(row_idx, weight=1)
 
-            lbl_icon = tk.Label(card, text=icon, font=("Segoe UI Emoji", 32), bg="#18181B")
-            lbl_icon.pack(anchor="center", pady=(5, 10))
+            # Icon Display
+            lbl_icon = tk.Label(card, text=icon, font=("Segoe UI Emoji", 36), bg=THEME["surface"])
+            lbl_icon.pack(anchor="center", pady=(5, 8))
 
-            tk.Label(card, text=name, font=("Helvetica", 11, "bold"), fg="#FFFFFF", bg="#18181B").pack(anchor="center")
-            tk.Label(card, text=price, font=("Helvetica", 9), fg="#A1A1AA", bg="#18181B").pack(anchor="center", pady=(2, 12))
+            # Product Details
+            lbl_title = tk.Label(card, text=name, font=("Helvetica", 11, "bold"), fg=THEME["text_main"], bg=THEME["surface"])
+            lbl_title.pack(anchor="center")
 
+            lbl_price = tk.Label(card, text=price, font=("Helvetica", 9), fg=THEME["text_muted"], bg=THEME["surface"])
+            lbl_price.pack(anchor="center", pady=(2, 12))
+
+            # Action Button
             btn_buy = tk.Button(
-                card, text="Add to Cart", font=("Helvetica", 9, "bold"), bg="#27272A", fg="#FFFFFF",
-                activebackground="#3F3F46", bd=0, padx=15, pady=6, cursor="hand2",
+                card, text="Add to Cart", font=("Helvetica", 9, "bold"),
+                bg=THEME["bg"], fg=THEME["text_main"],
+                activebackground=THEME["accent"], activeforeground="#FFFFFF",
+                bd=0, padx=16, pady=8, cursor="hand2",
                 command=lambda n=name: self._on_product_clicked(n)
             )
             btn_buy.pack(anchor="center", side="bottom")
 
-        # Footer Status
-        self.footer = tk.Frame(self, bg="#18181B", height=32)
+            # Bind Hover Dynamics to Card Component Hierarchy
+            self._attach_hover_effect(card, [lbl_icon, lbl_title, lbl_price])
+
+        # Bottom Live Status Bar
+        self.footer = tk.Frame(self, bg=THEME["surface"], height=36)
         self.footer.pack(fill="x", side="bottom")
 
+        status_container = tk.Frame(self.footer, bg=THEME["surface"])
+        status_container.pack(expand=True, pady=6)
+
+        self.canvas_pulse = tk.Canvas(status_container, width=10, height=10, bg=THEME["surface"], highlightthickness=0)
+        self.canvas_pulse.pack(side="left", padx=(0, 6))
+
         self.lbl_mic_status = tk.Label(
-            self.footer, text=self.mic_status_text, font=("Helvetica", 9),
-            fg=self.mic_status_color, bg="#18181B"
+            status_container, text=self.mic_status_text,
+            font=("Helvetica", 9, "bold"), fg=self.mic_status_color, bg=THEME["surface"]
         )
-        self.lbl_mic_status.pack(pady=6)
+        self.lbl_mic_status.pack(side="left")
+
+        self._apply_status_ui()
+
+    # --- DYNAMIC HOVER CONTROLLER ---
+    def _attach_hover_effect(self, card_widget, children):
+        def on_enter(e):
+            card_widget.config(bg=THEME["surface_hover"], highlightbackground=THEME["border_hover"])
+            for child in children:
+                child.config(bg=THEME["surface_hover"])
+
+        def on_leave(e):
+            card_widget.config(bg=THEME["surface"], highlightbackground=THEME["border"])
+            for child in children:
+                child.config(bg=THEME["surface"])
+
+        card_widget.bind("<Enter>", on_enter)
+        card_widget.bind("<Leave>", on_leave)
+        for child in children:
+            child.bind("<Enter>", on_enter)
+            child.bind("<Leave>", on_leave)
 
     def _on_product_clicked(self, product_name):
         assigned_contact = self.config_data.get("fruit_contacts", {}).get(product_name, "911 Emergency Dispatch")
@@ -263,11 +339,11 @@ class BobShopApp(tk.Tk):
         print("="*50 + "\n")
 
     # ==========================================
-    # 3. VOICE SPEECH RECOGNITION ENGINE
+    # 3. SPEECH RECOGNITION ENGINE
     # ==========================================
     def _start_speech_recognition(self):
         if not SPEECH_SUPPORTED:
-            self._update_status("● Speech Libraries Missing (pip install SpeechRecognition pyaudio)", "#EF4444")
+            self._update_status("● Speech Libraries Missing (pip install SpeechRecognition pyaudio)", THEME["status_error"])
             return
 
         recognizer = sr.Recognizer()
@@ -277,16 +353,16 @@ class BobShopApp(tk.Tk):
         try:
             mic = sr.Microphone()
         except Exception:
-            self._update_status("● Microphone Access Error", "#EF4444")
+            self._update_status("● Microphone Access Error", THEME["status_error"])
             return
 
-        self._update_status("● Calibrating Ambient Noise...", "#EAB308")
+        self._update_status("Calibrating Ambient Noise...", THEME["status_warn"])
         try:
             with mic as source:
                 recognizer.adjust_for_ambient_noise(source, duration=1.5)
-            self._update_status("● Live Protection Active (Listening)", "#22C55E")
+            self._update_status("Live Protection Active", THEME["status_active"])
         except Exception:
-            self._update_status("● Mic Initialization Failed", "#EF4444")
+            self._update_status("Mic Initialization Failed", THEME["status_error"])
             return
 
         while self.is_listening:
@@ -304,9 +380,9 @@ class BobShopApp(tk.Tk):
             except (sr.WaitTimeoutError, sr.UnknownValueError):
                 pass
             except sr.RequestError:
-                self._update_status("● Speech Network Error", "#EF4444")
+                self._update_status("Speech Network Error", THEME["status_error"])
                 time.sleep(3)
-                self._update_status("● Live Protection Active (Listening)", "#22C55E")
+                self._update_status("Live Protection Active", THEME["status_active"])
             except Exception:
                 time.sleep(1)
 
@@ -318,6 +394,9 @@ class BobShopApp(tk.Tk):
     def _apply_status_ui(self):
         if hasattr(self, 'lbl_mic_status') and self.lbl_mic_status.winfo_exists():
             self.lbl_mic_status.config(text=self.mic_status_text, fg=self.mic_status_color)
+            if hasattr(self, 'canvas_pulse') and self.canvas_pulse.winfo_exists():
+                self.canvas_pulse.delete("all")
+                self.canvas_pulse.create_oval(1, 1, 9, 9, fill=self.mic_status_color, outline="")
 
     def _trigger_alert(self, detected_text):
         contacts_summary = ", ".join(self.config_data.get("fruit_contacts", {}).values())
