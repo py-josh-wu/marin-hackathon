@@ -1,6 +1,7 @@
 import os
 import json
 import time
+import re
 import threading
 import tkinter as tk
 from tkinter import messagebox
@@ -82,7 +83,6 @@ def load_config():
             if "fruit_contacts" not in cfg:
                 cfg["fruit_contacts"] = DEFAULT_CONFIG["fruit_contacts"]
             else:
-                # Fill in any missing keys with unique contacts
                 for key, val in DEFAULT_CONFIG["fruit_contacts"].items():
                     if key not in cfg["fruit_contacts"]:
                         cfg["fruit_contacts"][key] = val
@@ -119,13 +119,16 @@ class RoundedButton(tk.Canvas):
         self.bind("<Leave>", lambda e: self._draw(self.bg_color))
         self.bind("<Button-1>", self._on_click)
 
+    def set_text(self, new_text):
+        self.text = new_text
+        self._draw(self.bg_color)
+
     def _draw(self, color):
         self.delete("all")
         r = self.radius
         w = self.btn_width
         h = self.btn_height
 
-        # Draw smooth rounded rectangle (pill container)
         self.create_arc(0, 0, 2*r, 2*r, start=90, extent=90, fill=color, outline=color)
         self.create_arc(w-2*r, 0, w, 2*r, start=0, extent=90, fill=color, outline=color)
         self.create_arc(0, h-2*r, 2*r, h, start=180, extent=90, fill=color, outline=color)
@@ -134,7 +137,6 @@ class RoundedButton(tk.Canvas):
         self.create_rectangle(r, 0, w-r, h, fill=color, outline=color)
         self.create_rectangle(0, r, w, h-r, fill=color, outline=color)
 
-        # Centered Text Label
         self.create_text(w / 2, h / 2, text=self.text, fill=self.text_color, font=self.font)
 
     def _on_click(self, event):
@@ -149,7 +151,7 @@ class BobShopApp(tk.Tk):
     def __init__(self):
         super().__init__()
 
-        self.title("BOB SHOP")
+        self.title("BOB SHOP - AI Voice Task Assistant")
         self.geometry("1080x900")
         self.configure(bg=THEME["bg"])
         self.resizable(True, True)
@@ -160,7 +162,10 @@ class BobShopApp(tk.Tk):
         self.mic_status_text = "Initializing Protection..."
         self.mic_status_color = THEME["status_warn"]
 
-        # Speech Listener Thread
+        self.is_ai_active = False
+        self.current_screen = "store"
+
+        # Background Security Speech Listener Thread
         self.listener_thread = threading.Thread(target=self._start_speech_recognition, daemon=True)
         self.listener_thread.start()
 
@@ -187,6 +192,7 @@ class BobShopApp(tk.Tk):
     # 1. SETUP & CONFIGURATION SCREEN
     # ==========================================
     def show_tutorial(self):
+        self.current_screen = "settings"
         self._clear_window()
 
         # Header
@@ -285,12 +291,13 @@ class BobShopApp(tk.Tk):
         self.show_store_interface()
 
     # ==========================================
-    # 2. VIBRANT STORE FRONTEND (4 COLUMNS x 3 ROWS)
+    # 2. VIBRANT STORE FRONTEND WITH AI TASK BOT
     # ==========================================
     def show_store_interface(self):
+        self.current_screen = "store"
         self._clear_window()
 
-        # Top Bar
+        # Top Nav Bar
         nav = tk.Frame(self, bg=THEME["nav_bg"], height=65, highlightbackground=THEME["border"], highlightthickness=1)
         nav.pack(fill="x")
         nav.pack_propagate(False)
@@ -311,16 +318,38 @@ class BobShopApp(tk.Tk):
         )
         btn_settings.pack(side="right", padx=20, pady=15)
 
-        # Main Catalog Area
-        main_content = tk.Frame(self, bg=THEME["bg"], padx=20, pady=15)
+        # Main Layout Box
+        main_content = tk.Frame(self, bg=THEME["bg"], padx=20, pady=10)
         main_content.pack(fill="both", expand=True)
 
+        # --- AI VOICE TASK BOT BANNER ---
+        ai_banner = tk.Frame(main_content, bg=THEME["surface"], highlightbackground=THEME["accent_primary"], highlightthickness=1, padx=15, pady=10)
+        ai_banner.pack(fill="x", pady=(0, 10))
+
+        ai_left = tk.Frame(ai_banner, bg=THEME["surface"])
+        ai_left.pack(side="left", fill="x", expand=True)
+
+        tk.Label(ai_left, text="🤖 AI Voice Task Assistant", font=("Helvetica", 11, "bold"), fg=THEME["text_main"], bg=THEME["surface"]).pack(anchor="w")
+        self.lbl_ai_transcript = tk.Label(
+            ai_left, text="Say something like: 'Add organic bananas to my cart' or 'Open settings'",
+            font=("Helvetica", 9), fg=THEME["text_muted"], bg=THEME["surface"]
+        )
+        self.lbl_ai_transcript.pack(anchor="w", pady=(2, 0))
+
+        self.btn_ai_listen = RoundedButton(
+            ai_banner, text="🎙️ Voice Command", command=self._trigger_ai_listen_thread,
+            width=150, height=34, radius=17,
+            bg_color=THEME["accent_primary"], hover_color=THEME["accent_primary_hover"],
+            text_color="#FFFFFF"
+        )
+        self.btn_ai_listen.pack(side="right", padx=(10, 0))
+
+        # Store Title Section
         header_box = tk.Frame(main_content, bg=THEME["bg"])
-        header_box.pack(fill="x", pady=(0, 10))
+        header_box.pack(fill="x", pady=(0, 5))
+        tk.Label(header_box, text="Fresh Organic Produce", font=("Helvetica", 14, "bold"), fg=THEME["text_main"], bg=THEME["bg"]).pack(side="left")
 
-        tk.Label(header_box, text="Fresh Organic Produce", font=("Helvetica", 15, "bold"), fg=THEME["text_main"], bg=THEME["bg"]).pack(side="left")
-
-        # Product Cards Grid (4 Columns)
+        # Product Grid
         grid_frame = tk.Frame(main_content, bg=THEME["bg"])
         grid_frame.pack(fill="both", expand=True)
 
@@ -337,7 +366,7 @@ class BobShopApp(tk.Tk):
             grid_frame.grid_columnconfigure(col_idx, weight=1)
             grid_frame.grid_rowconfigure(row_idx, weight=1)
 
-            lbl_icon = tk.Label(card, text=icon, font=("Segoe UI Emoji", 30), bg=THEME["surface"])
+            lbl_icon = tk.Label(card, text=icon, font=("Segoe UI Emoji", 28), bg=THEME["surface"])
             lbl_icon.pack(anchor="center", pady=(2, 4))
 
             lbl_title = tk.Label(card, text=name, font=("Helvetica", 10, "bold"), fg=THEME["text_main"], bg=THEME["surface"])
@@ -346,7 +375,6 @@ class BobShopApp(tk.Tk):
             lbl_price = tk.Label(card, text=price, font=("Helvetica", 9), fg=THEME["text_muted"], bg=THEME["surface"])
             lbl_price.pack(anchor="center", pady=(1, 8))
 
-            # Rounded Pill Button for Purchase
             btn_buy = RoundedButton(
                 card, text="Add to Cart 🛒", command=lambda n=name: self._on_product_clicked(n),
                 width=120, height=32, radius=16,
@@ -355,7 +383,6 @@ class BobShopApp(tk.Tk):
             )
             btn_buy.pack(anchor="center", side="bottom")
 
-            # Attach Hover Animation Effects
             self._attach_hover_effect(card, [lbl_icon, lbl_title, lbl_price], btn_buy)
 
         # Footer Status Bar
@@ -405,7 +432,75 @@ class BobShopApp(tk.Tk):
         print("="*50 + "\n")
 
     # ==========================================
-    # 3. SPEECH RECOGNITION ENGINE
+    # 3. AI TASK BOT VOICE EXECUTION ENGINE
+    # ==========================================
+    def _trigger_ai_listen_thread(self):
+        if self.is_ai_active:
+            return
+        threading.Thread(target=self._listen_and_execute_task, daemon=True).start()
+
+    def _listen_and_execute_task(self):
+        if not SPEECH_SUPPORTED:
+            self._update_ai_status("Speech Recognition library missing.")
+            return
+
+        self.is_ai_active = True
+        self._update_ai_status("👂 Listening for command...")
+        
+        recognizer = sr.Recognizer()
+        try:
+            with sr.Microphone() as source:
+                recognizer.adjust_for_ambient_noise(source, duration=0.8)
+                audio = recognizer.listen(source, timeout=5, phrase_time_limit=5)
+            
+            command = recognizer.recognize_google(audio).lower()
+            self._update_ai_status(f"Heard: \"{command}\"")
+            self.after(500, lambda: self._process_ai_command(command))
+        except sr.WaitTimeoutError:
+            self._update_ai_status("Timed out. Click button to try again.")
+        except sr.UnknownValueError:
+            self._update_ai_status("Sorry, I didn't catch that.")
+        except Exception as e:
+            self._update_ai_status(f"Error listening: {str(e)}")
+        finally:
+            self.is_ai_active = False
+
+    def _update_ai_status(self, text):
+        if hasattr(self, 'lbl_ai_transcript') and self.lbl_ai_transcript.winfo_exists():
+            self.after(0, lambda: self.lbl_ai_transcript.config(text=text))
+
+    def _process_ai_command(self, command):
+        """Parses speech text into actionable UI events."""
+        print(f"🤖 [AI BOT PROCESSING]: '{command}'")
+
+        # Task 1: Open Settings
+        if any(kw in command for kw in ["settings", "configure", "setup"]):
+            self._update_ai_status("Executing: Navigating to Settings...")
+            self.show_tutorial()
+            return
+
+        # Task 2: Save Settings (If on settings screen)
+        if self.current_screen == "settings" and "save" in command:
+            self._update_ai_status("Executing: Saving Settings...")
+            self._finish_tutorial()
+            return
+
+        # Task 3: Match Produce Item & Add to Cart
+        for name, price, icon in PRODUCTS_LIST:
+            # Check simple product match (e.g., 'banana', 'organic bananas', 'fuji', etc.)
+            clean_name = name.lower().replace("organic ", "").replace("fresh ", "").replace("sweet ", "").replace("ripe ", "")
+            single_words = clean_name.split()
+
+            if clean_name in command or any(w in command for w in single_words):
+                self._update_ai_status(f"Executing: Adding {name} to cart...")
+                self._on_product_clicked(name)
+                return
+
+        # Default fallback
+        self._update_ai_status(f"Unrecognized action: \"{command}\"")
+
+    # ==========================================
+    # 4. BACKGROUND SECURITY RECOGNITION
     # ==========================================
     def _start_speech_recognition(self):
         if not SPEECH_SUPPORTED:
@@ -432,6 +527,10 @@ class BobShopApp(tk.Tk):
             return
 
         while self.is_listening:
+            if self.is_ai_active:
+                time.sleep(0.5)
+                continue
+
             try:
                 with mic as source:
                     audio = recognizer.listen(source, timeout=3, phrase_time_limit=6)
